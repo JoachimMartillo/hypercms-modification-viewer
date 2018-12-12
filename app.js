@@ -10,6 +10,32 @@ var users = require('./routes/users');
 
 var app = express();
 
+var mysql      = require('mysql');
+var connectinfo =  {
+    host     : 'INVALID',
+    user     : 'INVALID',
+    password : 'INVALID',
+    database : '527700_cms_bostonscientific_db'
+} ;
+
+
+// just like to know start time
+var dateString = new Date().toUTCString();
+
+// set up so that we can talk to the database either from environment or by putting up
+// login screen.
+
+console.log('Starting server at ' + dateString); // print out start time to console
+if(process.env.CMSDBHOST) {
+    connectinfo.host = process.env.CMSDBHOST;
+}
+if(process.env.CMSDBUSER) {
+    connectinfo.user = process.env.CMSDBUSER;
+}
+if(process.env.CMSDBPASSWORD) {
+    connectinfo.password = process.env.CMSDBPASSWORD;
+}
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');

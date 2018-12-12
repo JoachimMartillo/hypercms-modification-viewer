@@ -85,9 +85,12 @@ recreated, let Intellij do it. You may have to click on the pom.xml
 twice to add it as a maven project.
 
 Now use VCS->Import into Version Control->Share onto Github to share
-onto Github. Now we can run npm install. These dependensies need not
-be imported into Github. There will probably be several hundred at
-least.
+onto Github. Now we can run npm install. The installed dependencies
+need not be imported into Github. There will probably be several
+hundred at least.
+
+To use maven you will probably have set the Project JDK even though it
+is meaningless in this case.
 
 
 
