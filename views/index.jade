@@ -1,5 +1,23 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+    .main.container
+        .row
+            .col-md-6.col-md-offset-3
+                h1.display-4.m-b-2
+                p Welcome to MySQL database login form
+                // register form
+                form(method='POST' action='/hostname')
+                    div.form-group
+                        label(for='hostname') Database Hostname:
+                        input#hostname.form-control(type='text', placeholder='localhost' hostname='hostname')
+                    div.form-group
+                        label(for='login') Database Login:
+                        input#login.form-control(type='text', placeholder='root' name='login')
+                    div.form-group
+                        label(for='password') Password:
+                        input#password.form-control(type='password' name='password')
+                    div.form-group
+                        label(for='confirmPassword') Confirm Password:
+                        input#confirmPassword.form-control(type='password' name='confirmPassword')
+                    button.btn.btn-primary(type='submit') login

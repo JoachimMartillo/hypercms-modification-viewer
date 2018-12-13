@@ -18,14 +18,17 @@ var connectinfo =  {
     database : '527700_cms_bostonscientific_db'
 } ;
 
+routes.loggedin = false; // no modifications to user accounts without successful login
+users.loggedin = false;
+routes.users = users; // so that we can get beyond db login screen
+users.routes = routes; // so that we can get to db login screen if not logged in
 
 // just like to know start time
 var dateString = new Date().toUTCString();
+console.log('Starting server at ' + dateString); // print out start time to console
 
 // set up so that we can talk to the database either from environment or by putting up
 // login screen.
-
-console.log('Starting server at ' + dateString); // print out start time to console
 if(process.env.CMSDBHOST) {
     connectinfo.host = process.env.CMSDBHOST;
 }
@@ -40,15 +43,18 @@ if(process.env.CMSDBPASSWORD) {
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 
-app.use(favicon());
+//app.use(favicon());
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+if(loggedin == true)
+    app.use('/', users);
 app.use('/', routes);
 app.use('/users', users);
+app.post('/hostname', routes);
 
 /// catch 404 and forwarding to error handler
 app.use(function(req, res, next) {
@@ -80,6 +86,5 @@ app.use(function(err, req, res, next) {
         error: {}
     });
 });
-
 
 module.exports = app;

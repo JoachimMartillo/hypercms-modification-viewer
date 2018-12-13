@@ -1,8 +1,32 @@
 body {
+  background-color: green;
   padding: 50px;
   font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+
+}
+h1 {
+  color: blue;
+}
+p {
+  color: red;
+  border: 1px solid powderblue;
+  padding: 30px;
+  margin: 50px;
+}
+#p01 {
+  color: orange;
+}
+p.error {
+  color: purple;
+}
+title {
+  color: #000000
 }
 
 a {
   color: #00B7FF;
+}
+
+f {
+  color: fuchsia;
 }
