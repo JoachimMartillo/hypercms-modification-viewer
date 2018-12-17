@@ -5,19 +5,19 @@ block content
         .row
             .col-md-6.col-md-offset-3
                 h1.display-4.m-b-2
-                p Welcome to MySQL database login form
+                p Welcome to MySQL Database Login Form
                 // register form
                 form(method='POST' action='/hostname')
                     div.form-group
-                        label(for='hostname') Database Hostname:
-                        input#hostname.form-control(type='text', placeholder='localhost' hostname='hostname')
+                        label(for='servername')      Database Server:
+                        input#servername.form-control(type='text', placeholder='localhost', name='servername')
                     div.form-group
-                        label(for='login') Database Login:
-                        input#login.form-control(type='text', placeholder='root' name='login')
+                        label(for='login')           Database Login :
+                        input#login.form-control(type='text', placeholder='root', name='login')
                     div.form-group
-                        label(for='password') Password:
-                        input#password.form-control(type='password' name='password')
+                        label(for='password')        DB Password    :
+                        input#password.form-control(type='password', name='password')
                     div.form-group
-                        label(for='confirmPassword') Confirm Password:
-                        input#confirmPassword.form-control(type='password' name='confirmPassword')
-                    button.btn.btn-primary(type='submit') login
+                        label(for='confirmPassword') DB Confirm     :
+                        input#confirmPassword.form-control(type='password', name='confirmPassword')
+                    button.btn.btn-primary(type='submit', name='button_login', value='login') login

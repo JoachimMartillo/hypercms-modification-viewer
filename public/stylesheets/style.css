@@ -30,3 +30,26 @@ a {
 f {
   color: fuchsia;
 }
+
+form {
+  width: 80%;
+  margin: 0 auto;
+}
+
+label, input {
+  /* in order to define widths */
+  display: inline-block;
+}
+
+label {
+  width: 30%;
+  /* positions the label text beside the input */
+  text-align: right;
+}
+
+label + input {
+  width: 30%;
+  /* large margin-right to force the next element to the new-line
+     and margin-left to create a gutter between the label and input */
+  margin: 0 30% 0 4%;
+}

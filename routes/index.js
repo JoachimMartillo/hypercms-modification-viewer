@@ -8,15 +8,11 @@ router.get('/', function (req, res, next) {
         if (err != null) {
             console.log(err);
         } else {
+            // I am puzzeled by html formal parameter
             console.log(html);
             res.send(html);
         }
     });
 });
-
-router.post('', function(req, res, next))
-{
-
-}
 
 module.exports = router;

@@ -1,0 +1,37 @@
+extends layout
+
+block content
+    .main.container
+        .row
+            .col-md-6.col-md-offset-3
+                h1.display-4.m-b-2
+                p Welcome to User Management Form
+                // register form
+                form(method='POST' action='/usermanagement')
+                    div.form-group
+                        label(for='email') Email :
+                        input#email.form-control(type='text', name='email')
+                    div.form-group
+                        label(for='hcmspassword') HyperCMS Password :
+                        input#hcmspassword.form-control(type='password', name='hcmspassword')
+                    div.form-group
+                        label(for='confirmPassword')   Database Password :
+                        input#confirmPassword.form-control(type='password', name='confirmPassword')
+                    div.form-group
+                        label(for='lastname') Last Name :
+                        input#lastname.form-control(type='text', name='lastname')
+                    div.form-group
+                        label(for='firstname') First Name :
+                        input#firstname.form-control(type='text', name='firstname')
+                    div.form-group
+                        label(for='middlename') Middle Name :
+                        input#middlename.form-control(type='text', name='middlename')
+                    div.form-group
+                        label(for='phone') Phone :
+                        input#phone.form-control(type='text', name='phone')
+                    div.form-group
+                        label(for='jobTitle') Job Title :
+                        input#jobTitle.form-control(type='text', name='jobTitle')
+                button.btn.btn-primary(type='submit', name='button_create', value='create') create
+                button.btn.btn-primary(type='submit', name='button_edit', value='edit') edit
+                button.btn.btn-primary(type='submit', name='button_view', value='view') view
