@@ -10,6 +10,8 @@ var uniqueid = require('uniqueid')
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
 var session = require('express-session');
+// There is only one group of environmental connection info
+var connectInfoFromEnv = getEnvConnectInfo();
 
 // I think only the database connection info & the actual connection
 // needs to be stored in the session data
@@ -18,18 +20,19 @@ var session = require('express-session');
 
 //set up webStart object, which handles web login to MySQL server.
 webStart.userManage = userManage;
+webStart.connectinfo = connectInfoFromEnv;
 webStart.setLoggedIn = setLoggedIn;
 webStart.setConnectInfoTryable = setConnectInfoTryable;
 
 //set up userManage object, which handles viewing or modifying Users data table.
 userManage.webStart = webStart; // so that we can get to db login screen if not already logged in
+userManage.connectinfo = connectInfoFromEnv;
 userManage.setLoggedIn = setLoggedIn;
 userManage.setConnectInfoTryable = setConnectInfoTryable;
 
 var app = express(); // this is the basic express app routing engine
 var multer = require('multer'); // multer handles forms posted to the server
 var upload = multer();
-
 
 var mysql = require('mysql');
 // I like to minimize number of global variables through aggregation
@@ -55,7 +58,6 @@ app.use(session({ secret: 'this-is-a-secret-token', cookie: { maxAge: 60000 }}))
 
 app.use('/', webStart);
 app.use('/userdisplay', userManage);
-
 app.post('/hostname', upload.none(), function (req, res, next) {
     var connectinfo = {
         host: req.body.servername,
@@ -67,7 +69,6 @@ app.post('/hostname', upload.none(), function (req, res, next) {
     // that includes login method
     tryToLogin(connectinfo, res);
 });
-
 app.post('/usermanagement', upload.none(), function (req, res, next) {
     var queryinfo = {
         email: req.body.email,
@@ -116,14 +117,12 @@ app.use(function (err, req, res, next) {
     });
 });
 
-updateConnectInfoFromEnv();
-
 function tryToLogin(connectinfo, res) {
     var con = mysql.createConnection({
         host: connectinfo.host,
         user: connectinfo.user,
         password: connectinfo.password,
-        database: '527700_cms_bostonscientific_db'
+        database: connectinfo.database
     });
 
     setCon(connectinfo, con);
@@ -284,19 +283,15 @@ function isDatabaseOK(connectinfo, con, res) {
     });
 }
 
-
+// It may be clearer to group the env operations inn this way
+// I may have to add some null fields.
 function updateConnectInfoFromEnv() {
-    var connectinfo = {
+    return {
         host: process.env.CMSDBHOST,
         user: process.env.CMSDBUSER,
         password: process.env.CMSDBPASSWORD,
-        database: '527700_cms_bostonscientific_db'
+        database: process.env.CMSDBDATABASE
     };
-    if ((connectinfo.host != undefined) &&
-        (connectinfo.user != undefined) &&
-        (connectinfo.password != undefined))
-        setConnectInfoTryable(connectinfo, true);
-    tryToLogin(connectinfo, null);
 }
 
 function setLoggedIn(connectinfo, status) {

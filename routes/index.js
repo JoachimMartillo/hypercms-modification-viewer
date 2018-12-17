@@ -8,7 +8,7 @@ router.get('/', function (req, res, next) {
         if (err != null) {
             console.log(err);
         } else {
-            // I am puzzeled by html formal parameter
+            // html value comes from rendering the Jade template.
             console.log(html);
             res.send(html);
         }
