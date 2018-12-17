@@ -9,9 +9,15 @@ var uniqueid = require('uniqueid')
 
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
+var session = require('express-session');
+
+// I think only the database connection info & the actual connection
+// needs to be stored in the session data
+// Default database server, database user, database password
+// can be grabbed from environment
 
 //set up webStart object, which handles web login to MySQL server.
-webStart.userManage = userManage; // so that we can get beyond db login screen
+webStart.userManage = userManage;
 webStart.setLoggedIn = setLoggedIn;
 webStart.setConnectInfoTryable = setConnectInfoTryable;
 
@@ -37,11 +43,13 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 // I still don't understand how to use favicon
 // app.use(favicon());
+
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(session({ secret: 'this-is-a-secret-token', cookie: { maxAge: 60000 }}));
 
 // set up routes
 

@@ -16,6 +16,7 @@
     "multer": "^1.4.1",
     "static-favicon": "~1.0.0",
     "domain": "^0.0.1",
-    "uniqueid": "^1.0.0"
+    "uniqueid": "^1.0.0",
+    "express-session": "^1.15.6"
   }
 }
