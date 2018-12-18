@@ -5,12 +5,14 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var asyncErrDomain = require('domain');
+// This may not be the best library
 var uniqueid = require('uniqueid')
 
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
 var session = require('express-session');
 // There is only one group of environmental connection info
+// This group becomes a single global object
 var connectInfoFromEnv = getEnvConnectInfo();
 
 // I think only the database connection info & the actual connection
@@ -35,7 +37,6 @@ var multer = require('multer'); // multer handles forms posted to the server
 var upload = multer();
 
 var mysql = require('mysql');
-// I like to minimize number of global variables through aggregation
 
 // just like to know start time -- I always add this line for logging
 var dateString = new Date().toUTCString();
