@@ -8,23 +8,19 @@ block content
                 p Welcome to MySQL Database Login Form
                 // register form
                 form(method='POST' action='/hostname')
-                    data_server_ph = dsph
-                    db_login_ph = dblph
-                    db_database_ph = dbdbph
-                    db_password_ph = dbpph
                     div.form-group
-                        label(for='servername')      Database Server:
-                        input#servername.form-control(type='text', placeholder=data_server_ph, name='servername')
+                        label(for='servername') Database Server (#{db_server_ph}):
+                        input#servername.form-control(type='text', name='servername')
                     div.form-group
-                        label(for='login')           Database Login:
-                        input#login.form-control(type='text', placeholder=db_login_ph, name='login')
+                        label(for='login') Database Login (#{db_login_ph}):
+                        input#login.form-control(type='text', name='login')
                     div.form-group
-                        label(for='datatable')           Database:
-                        input#datatable.form-control(type='text', placeholder=db_database_ph, name='datatable')
+                        label(for='database') Database (#{db_database_ph}):
+                        input#database.form-control(type='text', name='database')
                     div.form-group
-                        label(for='password')        DB Password    :
-                        input#password.form-control(type='password', placeholder=db_password_ph, name='password')
+                        label(for='password') DB Password (#{db_password_ph}):
+                        input#password.form-control(type='password', placeholder=password, name='password')
                     div.form-group
-                        label(for='confirmPassword') DB Confirm     :
-                        input#confirmPassword.form-control(type='password', placeholder=db_password_ph, name='confirmPassword')
+                        label(for='confirmPassword') DB Confirm (#{db_password_ph}):
+                        input#confirmPassword.form-control(type='password', placeholder=password, name='confirmPassword')
                     button.btn.btn-primary(type='submit', name='button_login', value='login') login

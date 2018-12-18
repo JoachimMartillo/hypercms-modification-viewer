@@ -1,4 +1,5 @@
-var express = require('express'); // I probably use too many semicolons
+var express = require('express'); // I probably use too many
+// semicolons
 var path = require('path');
 var favicon = require('static-favicon');
 var logger = require('morgan');
@@ -6,34 +7,46 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var asyncErrDomain = require('domain');
 // This may not be the best library
-var uniqueid = require('uniqueid')
 
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
 var session = require('express-session');
-// There is only one group of environmental connection info
-// This group becomes a single global object
+
+// There is only one group of environmental connection info This group
+// becomes a single global object
+
 var connectInfoFromEnv = getEnvConnectInfo();
 
 // I think only the database connection info & the actual connection
-// needs to be stored in the session data
-// Default database server, database user, database password
-// can be grabbed from environment
+// needs to be stored in the session data Default database server,
+// database user, database password can be grabbed from environment
+// Different users of this microservice should be able to log into
+// different databases.
 
 //set up webStart object, which handles web login to MySQL server.
-webStart.userManage = userManage;
-webStart.connectinfo = connectInfoFromEnv;
-webStart.setLoggedIn = setLoggedIn;
-webStart.setConnectInfoTryable = setConnectInfoTryable;
 
-//set up userManage object, which handles viewing or modifying Users data table.
-userManage.webStart = webStart; // so that we can get to db login screen if not already logged in
-userManage.connectinfo = connectInfoFromEnv;
-userManage.setLoggedIn = setLoggedIn;
-userManage.setConnectInfoTryable = setConnectInfoTryable;
+webStart.userManage = userManage;
+webStart.connectinfoENV = connectInfoFromEnv; /* Whatever env has at
+					       * time of microservice
+					       * startup */
+
+webStart.sessConnectInfoBuilder = ConnectInfo;
+
+//set up userManage object, which handles viewing or modifying Users
+//data table.
+userManage.webStart = webStart; // so that we can get to db login
+// screen if not already logged in
+userManage.connectinfoENV = connectInfoFromEnv; /* Whatever env has at
+						 * time of
+						 * microservice
+						 * startup */
+
+userManage.sessConnectInfoBuilder = ConnectInfo;
 
 var app = express(); // this is the basic express app routing engine
-var multer = require('multer'); // multer handles forms posted to the server
+
+var multer = require('multer'); // multer handles forms posted to the
+// server
 var upload = multer();
 
 var mysql = require('mysql');
@@ -45,30 +58,42 @@ console.log('Starting server at ' + dateString); // print out start time to cons
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-// I still don't understand how to use favicon
-// app.use(favicon());
+
+// I still don't understand how to use favicon app.use(favicon());
 
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({ secret: 'this-is-a-secret-token', cookie: { maxAge: 60000 }}));
+app.use(session({secret: 'this-is-a-secret-token', cookie: {maxAge: 60000}}));
 
 // set up routes
 
 app.use('/', webStart);
 app.use('/userdisplay', userManage);
+
+// This route processes the incoming connection data -- the user may
+// punt to defaults
+
 app.post('/hostname', upload.none(), function (req, res, next) {
+    if (req.body.password !== req.body.confirmPassword) {
+        retryGetDatabaseLoginInfo(req, res, next); // sends a variant
+        // of webstart form
+        return;
+    }
     var connectinfo = {
         host: req.body.servername,
         user: req.body.login,
-        password: req.body.password
+        password: req.body.password,
+        database: req.body.database
     };
+
+
     // in theory the received form contains login data
     // I should probably implement a complete connectinfo object
     // that includes login method
-    tryToLogin(connectinfo, res);
+    tryToLogin(connectinfo, req, res);
 });
 app.post('/usermanagement', upload.none(), function (req, res, next) {
     var queryinfo = {
@@ -118,7 +143,7 @@ app.use(function (err, req, res, next) {
     });
 });
 
-function tryToLogin(connectinfo, res) {
+function tryToLogin(connectinfo, req, res) {
     var con = mysql.createConnection({
         host: connectinfo.host,
         user: connectinfo.user,
@@ -134,14 +159,15 @@ function tryToLogin(connectinfo, res) {
             setConnectInfoTryable(false);
             app.use('/', webStart);
             if (res)
-                res.render('index', {title: 'MySQL Login Page'}, function (err, html) {
-                    if (err != null) {
-                        console.log(err);
-                    } else {
-                        console.log(html); // the MySQL Login form
-                        res.send(html);
-                    }
-                });
+                res.render('index', {title: 'MySQL Login Page'},
+                    function (err, html) {
+                        if (err != null) {
+                            console.log(err);
+                        } else {
+                            console.log(html); // the MySQL Login form
+                            res.send(html);
+                        }
+                    });
         } else {
             console.log("Connected to MySQL server!");
             setConnectInfoTryable(true);
@@ -157,14 +183,15 @@ function isDatabaseStillOK(con, queryinfo, res) {
         setConnectInfoTryable(false);
         setLoggedIn(false);
         app.use('/', webStart);
-        res.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
-            if (err != null) {
-                console.log(err);
-            } else {
-                console.log(html); // the MySQL Login form
-                res.send(html);
-            }
-        });
+        res.render('index', {title: 'MySQL Reconnect Page'},
+            function (err, html) {
+                if (err != null) {
+                    console.log(err);
+                } else {
+                    console.log(html); // the MySQL Login form
+                    res.send(html);
+                }
+            });
     });
 
     testingDataBase.run(function () {
@@ -233,8 +260,8 @@ function isDatabaseOK(connectinfo, con, res) {
     testingDataBase.on('error', function (err) {
         console.log("Could not get to Users datatable.")
         console.log("Is the correct MySQL server selected?")
-        setConnectInfoTryable(connectinfo,false);
-        setLoggedIn(connectinfo,false);
+        setConnectInfoTryable(connectinfo, false);
+        setLoggedIn(connectinfo, false);
         app.use('/', webStart);
         if (res != null)
             res.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
@@ -267,7 +294,7 @@ function isDatabaseOK(connectinfo, con, res) {
                         if (err)
                             throw err;
                         console.log(result);
-                        setLoggedIn(connectinfo,true);
+                        setLoggedIn(connectinfo, true);
                         if (res)
                             res.render('users', {title: 'Users Management Page'}, function (err, html) {
                                 if (err != null) {
@@ -286,25 +313,54 @@ function isDatabaseOK(connectinfo, con, res) {
 
 // It may be clearer to group the env operations inn this way
 // I may have to add some null fields.
-function updateConnectInfoFromEnv() {
-    return {
-        host: process.env.CMSDBHOST,
-        user: process.env.CMSDBUSER,
-        password: process.env.CMSDBPASSWORD,
-        database: process.env.CMSDBDATABASE
+
+function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
+    this.host = dbhost;
+    this.user = dbuser;
+    this.password = dbpassword;
+    this.database = dbdatabase;
+    this.isConnectInfoTryable = false;
+    this.loggedIn = false;
+    this.setLoggedIn = function (status) {
+        this.loggedIn = status;
+    };
+
+    function setConnectInfoTryable(status) {
+        this.isConnectInfoTryable = status;
+    };
+
+    function setCon(connection) {
+        this.connection = connection;
     };
 }
 
-function setLoggedIn(connectinfo, status) {
-    connectinfo.loggedIn = status;
+function getEnvConnectInfo() {
+    var temp = null;
+    return {
+        host: ((temp = process.env.CMSDBHOST) === undefined ? "" : temp),
+        user: ((temp = process.env.CMSDBUSER) === undefined ? "" : temp),
+        password: ((temp = process.env.CMSDBPASSWORD) === undefined ? "" : temp),
+        database: ((temp = process.env.CMSDBDATABASE) === undefined ? "" : temp)
+    };
 }
 
-function setConnectInfoTryable(connectinfo, status) {
-    connectinfo.isConnectInfoTryable = status;
-}
-
-function setCon(connectinfo, connection) {
-    connectinfo.connection = connection;
+function retryGetDatabaseLoginInfo(req, res, next) {
+    var sessData = req.session;
+    res.render('index', {
+        title: "MySQL Try Again: " + sessData.sessionID,
+        db_server_ph: sessData.connectInfoSession.host,
+        db_login_ph: sessData.connectInfoSession.user,
+        db_password_ph: "*****",
+        db_database_ph: sessData.connectInfoSession.database
+    }, function (err, html) {
+        if (err != null) {
+            console.log(err);
+        } else {
+            // html value comes from rendering the Jade template.
+            console.log(html);
+            res.send(html);
+        }
+    });
 }
 
 module.exports = app;
