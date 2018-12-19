@@ -96,13 +96,16 @@ app.post('/hostname', upload.none(), function (req, res, next) {
     // in theory the received form contains login data
     // I should probably implement a complete connectinfo object
     // that includes login method
-    status = req.session.connectInfoSession.tryToLogin(newconnectinfo, req, res);
+    // only tryToLogin can actually change the ConnectInfo parameters
+    // tryToLogin can add the database connection to the session ConnectInfo
+    status = req.session.connectInfoSession.tryToLogin(newconnectinfo, res);
     if (status == false) {
-        // session defaults were updated but not acceptable for connecting to database
+        // session defaults were maybe updated but not acceptable for connecting to database
         req.session.connectInfoSession.retryGetDatabaseLoginInfo(req, res, next); // sends a variant
     }
     // if status return was true, waiting for database server response
 });
+
 app.post('/usermanagement', upload.none(), function (req, res, next) {
     var queryinfo = {
         email: req.body.email,
@@ -113,11 +116,12 @@ app.post('/usermanagement', upload.none(), function (req, res, next) {
         middlename: req.body.middlename,
         phone: req.body.phone,
         jobTitle: req.body.jobTitle,
+        role: req.body.role,
         button_create: req.body.button_create,
         button_view: req.body.button_view,
         button_edit: req.body.button_edit
     };
-    isDatabaseStillOK(connectinfo.connection, queryinfo, res);
+    req.session.connectInfoSession.isDatabaseStillOK(queryinfo, res);
 });
 
 /// catch 404 and forwarding to error handler
@@ -142,7 +146,7 @@ if (app.get('env') === 'development') {
 }
 
 // production error handler
-// no stacktraces leaked to user
+// no stack traces leaked to user
 app.use(function (err, req, res, next) {
     res.status(err.status || 500);
     res.render('error', {
@@ -153,6 +157,7 @@ app.use(function (err, req, res, next) {
 
 // It may be clearer to group the env operations inn this way
 // I may have to add some null fields.
+// All this data is per session.
 
 function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
     this.host = dbhost;
@@ -168,28 +173,31 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
         this.isConnectInfoTryable = status;
     };
 
+    // Save the data structure used to make connection
     this.setCon = function (connection) {
         this.connection = connection;
     };
 
-    this.tryToLogin = function (newconnectinfo, req, res) {
+    this.tryToLogin = function (newconnectinfo, res) {
         // newconnectinfo came from the latest submitted form.
         // it must be checked for minimal sanity.
         // "" does not override a valid string.
         this.loggedIn = false;
-        if(newconnectioninfo.host != "")
-            this.host =
-            if(newconnectioninfo.dbuser != "")
-		this.user = newconnectioninfo.user;
-        if(newconnectioninfo.user != "")
-            this.password = newconnectioninfo.user;
-        if(newconnectioninfo.database != "")
+        // The following overrides the environment.
+        if (newconnectioninfo.host != "")
+            this.host = newconnectinfo.host;
+        if (newconnectioninfo.dbuser != "")
+            this.user = newconnectioninfo.user;
+        if (newconnectioninfo.user != "")
+            this.password = newconnectioninfo.password;
+        if (newconnectioninfo.database != "")
             this.database = newconnectioninfo.database;
 
         this.isConnectInfoTryable = false;
-        if((this.host == "") || (this.user == "") || (this.password == "") || (this.database == ""))
+        if ((this.host == "") || (this.user == "") || (this.password == "") || (this.database == ""))
             return false; /* cannot try the connection, need more info */
         this.isConnectInfoTryable = true;
+        //
         var con = mysql.createConnection({
             host: this.host,
             user: this.user,
@@ -203,71 +211,69 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
         // note that connection info may be valid but connection
         // may fail
 
-        setCon(newconnectinfo, con);
+        this.setCon(con);
 
         con.connect(function (err) {
             if (err) {
                 console.log("Need to retry with new connect info!");
                 this.setConnectInfoTryable(false);
-                app.use('/', webStart);
                 if (res)
-                    res.render('index', {title: 'MySQL Login Page'},
-                               function (err, html) {
-				   if (err != null) {
-                                       console.log(err);
-				   } else {
-                                       console.log(html); // the MySQL Login form
-                                       res.send(html);
-				   }
-                               });
+                    res.render('index', {title: 'MySQL Reconnect'},
+                        function (err, html) {
+                            if (err != null) {
+                                console.log(err);
+                            } else {
+                                console.log(html); // the MySQL Login form
+                                res.send(html);
+                            }
+                        });
             } else {
                 console.log("Connected to MySQL server!");
                 setConnectInfoTryable(true);
-                this.isDatabaseOK(con, res);
+                this.isDatabaseOK(res);
             }
         });
     }
 
-    this.isDatabaseStillOK = function (con, queryinfo, res) {
+    this.isDatabaseStillOK = function (queryinfo, res) {
         var testingDataBase = asyncErrDomain.create();
         testingDataBase.on('error', function (err) {
             console.log("Connection to Database Server is broken.")
             setConnectInfoTryable(false);
             setLoggedIn(false);
-            app.use('/', webStart);
             res.render('index', {title: 'MySQL Reconnect Page'},
-		       function (err, html) {
-                           if (err != null) {
-			       console.log(err);
-                           } else {
-			       console.log(html); // the MySQL Login form
-			       res.send(html);
-                           }
-		       });
+                function (err, html) {
+                    if (err != null) {
+                        console.log(err);
+                    } else {
+                        console.log(html); // the MySQL Login form
+                        res.send(html);
+                    }
+                });
         });
-	
+
         testingDataBase.run(function () {
-            con.query("show databases;", function (err, result) {
+            this.connection.query("show databases;", function (err, result) {
                 if (err)
                     throw err;
                 console.log("Available Databases: ");
                 for (idb = 0; idb < result.length; ++idb) {
                     console.log(result[idb]);
                 }
-                con.query("use " + connectinfo.database + ";", function (err, result) {
+                this.connection.query("use " + connectinfo.database + ";", function (err, result) {
                     if (err)
                         throw err;
                     console.log(result);
-                    con.query("show tables;", function (err, result) {
+                    this.connection.query("show tables;", function (err, result) {
                         if (err)
                             throw err;
                         console.log(result);
-                        con.query("describe Users;", function (err, result) {
+                        this.connection.query("describe Users;", function (err, result) {
                             if (err)
                                 throw err;
                             console.log(result);
                             setLoggedIn(true);
-			    
+
                             if (queryinfo.button_create != null) {
                                 mysql_create(query_info, connectinfo.connection);
                                 res.render('users', {title: 'User Create Page'}, function (err, html) {
@@ -289,7 +295,7 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
                                     }
                                 });
                             } else {
-                                mysql_view(query_info, connectinfo.connection);
+                                mysql_view(query_info, this.connection);
                                 res.render('users', {title: 'User Display Page'}, function (err, html) {
                                     if (err != null) {
                                         console.log(err);
@@ -306,15 +312,14 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
         });
     }
 
-    this.isDatabaseOK = function (connectinfo, con, res) {
-        // if res is non-null, there is a browser sess to which there must be response
+    this.isDatabaseOK = function (res) {
+        // if res is non-null, there is a browser session to which there must be response
         var testingDataBase = asyncErrDomain.create();
         testingDataBase.on('error', function (err) {
             console.log("Could not get to Users datatable.")
             console.log("Is the correct MySQL server selected?")
-            setConnectInfoTryable(connectinfo, false);
-            setLoggedIn(connectinfo, false);
-            app.use('/', webStart);
+            setConnectInfoTryable(false);
+            setLoggedIn(false);
             if (res != null)
                 res.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
                     if (err != null) {
@@ -325,28 +330,28 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
                     }
                 });
         });
-	
+
         testingDataBase.run(function () {
-            con.query("show databases;", function (err, result) {
+            this.connectinfo.query("show databases;", function (err, result) {
                 if (err)
                     throw err;
                 console.log("Available Databases: ");
                 for (idb = 0; idb < result.length; ++idb) {
                     console.log(result[idb]);
                 }
-                con.query("use " + connectinfo.database + ";", function (err, result) {
+                this.connectinfo.query("use " + this.database + ";", function (err, result) {
                     if (err)
                         throw err;
                     console.log(result);
-                    con.query("show tables;", function (err, result) {
+                    this.connectinfo.con.query("show tables;", function (err, result) {
                         if (err)
                             throw err;
                         console.log(result);
-                        con.query("describe Users;", function (err, result) {
+                        this.connectinfo.query("describe Users;", function (err, result) {
                             if (err)
                                 throw err;
                             console.log(result);
-                            setLoggedIn(connectinfo, true);
+                            setLoggedIn(true);
                             if (res)
                                 res.render('users', {title: 'Users Management Page'}, function (err, html) {
                                     if (err != null) {
@@ -362,11 +367,11 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
             });
         });
     }
-    
+
     // passwords did not agree -- other parameters might be bad
     // did not update the session specific paramets with data
     // entered from browser.
-    
+
     function retryGetDatabaseLoginInfo(req, res, next) {
         var sessData = req.session;
         res.render('index', {
