@@ -11,6 +11,7 @@ var asyncErrDomain = require('domain');
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
 var session = require('express-session');
+var MySQLStore = require('express-mysql-session')(session);
 
 // There is only one group of environmental connection info This group
 // becomes a single global object
@@ -27,8 +28,8 @@ var connectInfoFromEnv = getEnvConnectInfo();
 
 webStart.userManage = userManage;
 webStart.connectinfoENV = connectInfoFromEnv; /* Whatever env has at
-					       * time of microservice
-					       * startup */
+                                               * time of microservice
+                                               * startup */
 
 webStart.sessConnectInfoBuilder = ConnectInfo;
 
@@ -37,9 +38,9 @@ webStart.sessConnectInfoBuilder = ConnectInfo;
 userManage.webStart = webStart; // so that we can get to db login
 // screen if not already logged in
 userManage.connectinfoENV = connectInfoFromEnv; /* Whatever env has at
-						 * time of
-						 * microservice
-						 * startup */
+                                                 * time of
+                                                 * microservice
+                                                 * startup */
 
 userManage.sessConnectInfoBuilder = ConnectInfo;
 
@@ -77,13 +78,15 @@ app.use('/userdisplay', userManage);
 // punt to defaults
 
 app.post('/hostname', upload.none(), function (req, res, next) {
-    if (req.body.password !== req.body.confirmPassword) {
-        req.session.connectInfoSession.retryGetDatabaseLoginInfo(req, res, next); // sends a variant
-        // of webstart form
-        return;
-    }
+    var status = false;
+    var cos = req.session.connectInfoSession;
+
+    // these two following lines seem to contain some redundancies.
+    cos = addMethodsToConnectionInfoObject(cos);
+    req.session.connectInfoSession = cos;
+
     // below is not the connectinfo object
-    // the values come from the form
+    // the values come from the HTTP POST'd form
     var newconnectinfo = {
         host: req.body.servername,
         user: req.body.login,
@@ -98,10 +101,10 @@ app.post('/hostname', upload.none(), function (req, res, next) {
     // that includes login method
     // only tryToLogin can actually change the ConnectInfo parameters
     // tryToLogin can add the database connection to the session ConnectInfo
-    status = req.session.connectInfoSession.tryToLogin(newconnectinfo, res);
+    status = cos.tryToLogin(newconnectinfo, req.body.confirmPassword, res);
     if (status == false) {
         // session defaults were maybe updated but not acceptable for connecting to database
-        req.session.connectInfoSession.retryGetDatabaseLoginInfo(req, res, next); // sends a variant
+        cos.retryGetDatabaseLoginInfo(res, next); // sends a variant
     }
     // if status return was true, waiting for database server response
 });
@@ -155,244 +158,9 @@ app.use(function (err, req, res, next) {
     });
 });
 
-// It may be clearer to group the env operations inn this way
-// I may have to add some null fields.
-// All this data is per session.
+/* Functions */
 
-function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
-    this.host = dbhost;
-    this.user = dbuser;
-    this.password = dbpassword;
-    this.database = dbdatabase;
-    this.isConnectInfoTryable = false;
-    this.loggedIn = false;
-    this.setLoggedIn = function (status) {
-        this.loggedIn = status;
-    };
-    this.setConnectInfoTryable = function (status) {
-        this.isConnectInfoTryable = status;
-    };
-
-    // Save the data structure used to make connection
-    this.setCon = function (connection) {
-        this.connection = connection;
-    };
-
-    this.tryToLogin = function (newconnectinfo, res) {
-        // newconnectinfo came from the latest submitted form.
-        // it must be checked for minimal sanity.
-        // "" does not override a valid string.
-        this.loggedIn = false;
-        // The following overrides the environment.
-        if (newconnectioninfo.host != "")
-            this.host = newconnectinfo.host;
-        if (newconnectioninfo.dbuser != "")
-            this.user = newconnectioninfo.user;
-        if (newconnectioninfo.user != "")
-            this.password = newconnectioninfo.password;
-        if (newconnectioninfo.database != "")
-            this.database = newconnectioninfo.database;
-
-        this.isConnectInfoTryable = false;
-        if ((this.host == "") || (this.user == "") || (this.password == "") || (this.database == ""))
-            return false; /* cannot try the connection, need more info */
-        this.isConnectInfoTryable = true;
-        //
-        var con = mysql.createConnection({
-            host: this.host,
-            user: this.user,
-            password: this.password,
-            database: this.database
-        });
-
-        // we have no reason to doubt these parameters -- we
-        // update the per browser session parameters
-
-        // note that connection info may be valid but connection
-        // may fail
-
-        this.setCon(con);
-
-        con.connect(function (err) {
-            if (err) {
-                console.log("Need to retry with new connect info!");
-                this.setConnectInfoTryable(false);
-                if (res)
-                    res.render('index', {title: 'MySQL Reconnect'},
-                        function (err, html) {
-                            if (err != null) {
-                                console.log(err);
-                            } else {
-                                console.log(html); // the MySQL Login form
-                                res.send(html);
-                            }
-                        });
-            } else {
-                console.log("Connected to MySQL server!");
-                setConnectInfoTryable(true);
-                this.isDatabaseOK(res);
-            }
-        });
-    }
-
-    this.isDatabaseStillOK = function (queryinfo, res) {
-        var testingDataBase = asyncErrDomain.create();
-        testingDataBase.on('error', function (err) {
-            console.log("Connection to Database Server is broken.")
-            setConnectInfoTryable(false);
-            setLoggedIn(false);
-            res.render('index', {title: 'MySQL Reconnect Page'},
-                function (err, html) {
-                    if (err != null) {
-                        console.log(err);
-                    } else {
-                        console.log(html); // the MySQL Login form
-                        res.send(html);
-                    }
-                });
-        });
-
-        testingDataBase.run(function () {
-            this.connection.query("show databases;", function (err, result) {
-                if (err)
-                    throw err;
-                console.log("Available Databases: ");
-                for (idb = 0; idb < result.length; ++idb) {
-                    console.log(result[idb]);
-                }
-                this.connection.query("use " + connectinfo.database + ";", function (err, result) {
-                    if (err)
-                        throw err;
-                    console.log(result);
-                    this.connection.query("show tables;", function (err, result) {
-                        if (err)
-                            throw err;
-                        console.log(result);
-                        this.connection.query("describe Users;", function (err, result) {
-                            if (err)
-                                throw err;
-                            console.log(result);
-                            setLoggedIn(true);
-
-                            if (queryinfo.button_create != null) {
-                                mysql_create(query_info, connectinfo.connection);
-                                res.render('users', {title: 'User Create Page'}, function (err, html) {
-                                    if (err != null) {
-                                        console.log(err);
-                                    } else {
-                                        console.log(html);
-                                        res.send(html);
-                                    }
-                                });
-                            } else if (queryinfo.button_edit != null) {
-                                mysql_update(query_info, connectinfo.connection);
-                                res.render('users', {title: 'User View Page'}, function (err, html) {
-                                    if (err != null) {
-                                        console.log(err);
-                                    } else {
-                                        console.log(html);
-                                        res.send(html);
-                                    }
-                                });
-                            } else {
-                                mysql_view(query_info, this.connection);
-                                res.render('users', {title: 'User Display Page'}, function (err, html) {
-                                    if (err != null) {
-                                        console.log(err);
-                                    } else {
-                                        console.log(html);
-                                        res.send(html);
-                                    }
-                                });
-                            }
-                        });
-                    });
-                });
-            });
-        });
-    }
-
-    this.isDatabaseOK = function (res) {
-        // if res is non-null, there is a browser session to which there must be response
-        var testingDataBase = asyncErrDomain.create();
-        testingDataBase.on('error', function (err) {
-            console.log("Could not get to Users datatable.")
-            console.log("Is the correct MySQL server selected?")
-            setConnectInfoTryable(false);
-            setLoggedIn(false);
-            if (res != null)
-                res.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
-                    if (err != null) {
-                        console.log(err);
-                    } else {
-                        console.log(html); // the MySQL Login form
-                        res.send(html);
-                    }
-                });
-        });
-
-        testingDataBase.run(function () {
-            this.connectinfo.query("show databases;", function (err, result) {
-                if (err)
-                    throw err;
-                console.log("Available Databases: ");
-                for (idb = 0; idb < result.length; ++idb) {
-                    console.log(result[idb]);
-                }
-                this.connectinfo.query("use " + this.database + ";", function (err, result) {
-                    if (err)
-                        throw err;
-                    console.log(result);
-                    this.connectinfo.con.query("show tables;", function (err, result) {
-                        if (err)
-                            throw err;
-                        console.log(result);
-                        this.connectinfo.query("describe Users;", function (err, result) {
-                            if (err)
-                                throw err;
-                            console.log(result);
-                            setLoggedIn(true);
-                            if (res)
-                                res.render('users', {title: 'Users Management Page'}, function (err, html) {
-                                    if (err != null) {
-                                        console.log(err);
-                                    } else {
-                                        console.log(html);
-                                        res.send(html);
-                                    }
-                                });
-                        });
-                    });
-                });
-            });
-        });
-    }
-
-    // passwords did not agree -- other parameters might be bad
-    // did not update the session specific paramets with data
-    // entered from browser.
-
-    function retryGetDatabaseLoginInfo(req, res, next) {
-        var sessData = req.session;
-        res.render('index', {
-            title: "MySQL Try Again: " + sessData.sessionID,
-            db_server_ph: sessData.connectInfoSession.host,
-            db_login_ph: sessData.connectInfoSession.user,
-            db_password_ph: "*****",
-            db_database_ph: sessData.connectInfoSession.database
-        }, function (err, html) {
-            if (err != null) {
-                console.log(err);
-            } else {
-                // html value comes from rendering the Jade template.
-                console.log(html);
-                res.send(html);
-            }
-        });
-    }
-}
-
-// This function is global. There is only one group of environment connection parameters,
+// There is only one group of environment connection parameters,
 // which can be overridden.
 
 function getEnvConnectInfo() {
@@ -403,6 +171,271 @@ function getEnvConnectInfo() {
         password: ((temp = process.env.CMSDBPASSWORD) === undefined ? "" : temp),
         database: ((temp = process.env.CMSDBDATABASE) === undefined ? "" : temp)
     };
+}
+
+/* Function to add methods to object*/
+
+function addMethodsToConnectionInfoObject(coi) {
+    coi.tryToLogin = tryToLogin;
+    coi.isDatabaseStillOK = isDatabaseStillOK;
+    coi.isDatabaseOK = isDatabaseOK;
+    coi.setLoggedIn = setLoggedIn;
+    coi.setConnectInfoTryable = setConnectInfoTryable;
+    coi.setCon = setCon;
+    coi.retryGetDatabaseLoginInfo = retryGetDatabaseLoginInfo;
+    return (coi);
+}
+
+//  The object is created per session so that the code can keep track
+//  which user is doing what.
+
+/* Constructor */
+
+function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase) {
+    this.host = dbhost;
+    this.user = dbuser;
+    this.password = dbpassword;
+    this.database = dbdatabase;
+    this.isConnectInfoTryable = false;
+    this.loggedIn = false;
+}
+
+// methods don't seem to be preserved as session objects are passed into http requests. Fortunately,
+// the methods can be added later.
+
+
+/* Methods */
+
+var setLoggedIn = function (status) {
+    this.loggedIn = status;
+};
+var setConnectInfoTryable = function (status) {
+    this.isConnectInfoTryable = status;
+};
+
+// Save the data structure used to make connection
+var setCon = function (connection) {
+    this.connection = connection;
+};
+
+var tryToLogin = function (newconnectinfo, confirmPassword, res) {
+    // newconnectinfo came from the latest submitted form.
+    // it must be checked for minimal sanity.
+    // "" does not override a valid string.
+    this.loggedIn = false;
+    // The following overrides the environment.
+    if (newconnectinfo.host != "")
+        this.host = newconnectinfo.host;
+    if (newconnectinfo.user != "")
+        this.user = newconnectinfo.user;
+    if (newconnectinfo.password != "")
+        this.password = newconnectinfo.password;
+    if (newconnectinfo.database != "")
+        this.database = newconnectinfo.database;
+
+    this.isConnectInfoTryable = false;
+    if ((confirmPassword != "") && (this.password != confirmPassword))
+        return false;
+    if ((this.host == "") || (this.user == "") || (this.password == "") || (this.database == ""))
+        return false; /* cannot try the connection, need more info */
+
+    this.isConnectInfoTryable = true;
+    var con = mysql.createConnection({
+        host: this.host,
+        user: this.user,
+        password: this.password,
+        database: this.database
+    });
+    var sessionStore = new MySQLStore({}, con);
+    // con is an object associated with its own methods -- have to save current object in con
+    sessionStore.connectInfoSession = this;
+    sessionStore.res = res;		// need to save browser response object too
+    // we are not responding to mysql database
+
+    // we have no reason to doubt these parameters -- we
+    // update the per browser session parameters
+
+    // note that connection info may be valid but connection
+    // may fail
+
+    this.setCon(con);
+    con.connect(function (err) {
+        if (err) {
+            console.log("Need to retry with new connect info!");
+            // different this
+            this.connectInfoSession.setConnectInfoTryable(false);
+            if (this.res)
+                this.res.render('index', {title: 'MySQL Reconnect'},
+                    function (err, html) {
+                        if (err != null) {
+                            console.log(err);
+                        } else {
+                            console.log(html); // the MySQL Login form
+                            this.res.send(html);
+                        }
+                    });
+        } else {
+            console.log("Connected to MySQL server!");
+            this.connectInfoSession.setConnectInfoTryable(true);
+            this.connectInfoSession.isDatabaseOK(res);
+        }
+    });
+}
+
+var isDatabaseStillOK = function (queryinfo, res) {
+    var testingDataBase = asyncErrDomain.create();
+    testingDataBase.on('error', function (err) {
+        console.log("Connection to Database Server is broken.")
+        setConnectInfoTryable(false);
+        setLoggedIn(false);
+        res.render('index', {title: 'MySQL Reconnect Page'},
+            function (err, html) {
+                if (err != null) {
+                    console.log(err);
+                } else {
+                    console.log(html); // the MySQL Login form
+                    res.send(html);
+                }
+            });
+    });
+
+    testingDataBase.run(function () {
+        this.connection.query("show databases;", function (err, result) {
+            if (err)
+                throw err;
+            console.log("Available Databases: ");
+            for (idb = 0; idb < result.length; ++idb) {
+                console.log(result[idb]);
+            }
+            this.connection.query("use " + connectinfo.database + ";", function (err, result) {
+                if (err)
+                    throw err;
+                console.log(result);
+                this.connection.query("show tables;", function (err, result) {
+                    if (err)
+                        throw err;
+                    console.log(result);
+                    this.connection.query("describe Users;", function (err, result) {
+                        if (err)
+                            throw err;
+                        console.log(result);
+                        setLoggedIn(true);
+
+                        if (queryinfo.button_create != null) {
+                            mysql_create(query_info, connectinfo.connection);
+                            res.render('users', {title: 'User Create Page'}, function (err, html) {
+                                if (err != null) {
+                                    console.log(err);
+                                } else {
+                                    console.log(html);
+                                    res.send(html);
+                                }
+                            });
+                        } else if (queryinfo.button_edit != null) {
+                            mysql_update(query_info, connectinfo.connection);
+                            res.render('users', {title: 'User View Page'}, function (err, html) {
+                                if (err != null) {
+                                    console.log(err);
+                                } else {
+                                    console.log(html);
+                                    res.send(html);
+                                }
+                            });
+                        } else {
+                            mysql_view(query_info, this.connection);
+                            res.render('users', {title: 'User Display Page'}, function (err, html) {
+                                if (err != null) {
+                                    console.log(err);
+                                } else {
+                                    console.log(html);
+                                    res.send(html);
+                                }
+                            });
+                        }
+                    });
+                });
+            });
+        });
+    });
+}
+
+var isDatabaseOK = function (res) {
+    // if res is non-null, there is a browser session to which there must be response
+    var testingDataBase = asyncErrDomain.create();
+    testingDataBase.on('error', function (err) {
+        console.log("Could not get to Users datatable.")
+        console.log("Is the correct MySQL server selected?")
+        setConnectInfoTryable(false);
+        setLoggedIn(false);
+        if (res != null)
+            res.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
+                if (err != null) {
+                    console.log(err);
+                } else {
+                    console.log(html); // the MySQL Login form
+                    res.send(html);
+                }
+            });
+    });
+
+    testingDataBase.run(function () {
+        this.connectinfo.query("show databases;", function (err, result) {
+            if (err)
+                throw err;
+            console.log("Available Databases: ");
+            for (idb = 0; idb < result.length; ++idb) {
+                console.log(result[idb]);
+            }
+            this.connectinfo.query("use " + this.database + ";", function (err, result) {
+                if (err)
+                    throw err;
+                console.log(result);
+                this.connectinfo.con.query("show tables;", function (err, result) {
+                    if (err)
+                        throw err;
+                    console.log(result);
+                    this.connectinfo.query("describe Users;", function (err, result) {
+                        if (err)
+                            throw err;
+                        console.log(result);
+                        setLoggedIn(true);
+                        if (res)
+                            res.render('users', {title: 'Users Management Page'}, function (err, html) {
+                                if (err != null) {
+                                    console.log(err);
+                                } else {
+                                    console.log(html);
+                                    res.send(html);
+                                }
+                            });
+                    });
+                });
+            });
+        });
+    });
+}
+
+// passwords did not agree -- other parameters might be bad
+// did not update the session specific parameters with data
+// entered from browser.
+
+var retryGetDatabaseLoginInfo = function (res, next) {
+    console.log(this.session.connectInfoSession.toString());
+    res.render('index', {
+        title: "MySQL Try Again: " + this.sessionID,
+        db_server_ph: this.connectInfoSession.host,
+        db_login_ph: this.connectInfoSession.user,
+        db_password_ph: "*****", /* should indicate presence of default */
+        db_database_ph: this.connectInfoSession.database
+    }, function (err, html) {
+        if (err != null) {
+            console.log(err);
+        } else {
+            // html value comes from rendering the Jade template.
+            console.log(html);
+            res.send(html);
+        }
+    });
 }
 
 module.exports = app;

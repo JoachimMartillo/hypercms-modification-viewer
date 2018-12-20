@@ -17,6 +17,7 @@
     "static-favicon": "~1.0.0",
     "domain": "^0.0.1",
     "uniqueid": "^1.0.0",
-    "express-session": "^1.15.6"
+    "express-session": "^1.15.6",
+    "express-mysql-session": "^2.0.1"
   }
 }
