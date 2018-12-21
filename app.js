@@ -5,13 +5,15 @@ var favicon = require('static-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
+var Promise = require('promise'); // Promise may make domain unnecessary
 var asyncErrDomain = require('domain');
 // This may not be the best library
 
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
 var session = require('express-session');
-var MySQLStore = require('express-mysql-session')(session);
+// Not Needed
+// var MySQLStore = require('express-mysql-session')(session);
 
 // There is only one group of environmental connection info This group
 // becomes a single global object
@@ -30,7 +32,6 @@ webStart.userManage = userManage;
 webStart.connectinfoENV = connectInfoFromEnv; /* Whatever env has at
                                                * time of microservice
                                                * startup */
-
 webStart.sessConnectInfoBuilder = ConnectInfo;
 
 //set up userManage object, which handles viewing or modifying Users
@@ -41,15 +42,12 @@ userManage.connectinfoENV = connectInfoFromEnv; /* Whatever env has at
                                                  * time of
                                                  * microservice
                                                  * startup */
-
 userManage.sessConnectInfoBuilder = ConnectInfo;
 
 var app = express(); // this is the basic express app routing engine
-
 var multer = require('multer'); // multer handles forms posted to the
 // server
 var upload = multer();
-
 var mysql = require('mysql');
 
 // just like to know start time -- I always add this line for logging
@@ -175,15 +173,15 @@ function getEnvConnectInfo() {
 
 /* Function to add methods to object*/
 
-function addMethodsToConnectionInfoObject(coi) {
-    coi.tryToLogin = tryToLogin;
-    coi.isDatabaseStillOK = isDatabaseStillOK;
-    coi.isDatabaseOK = isDatabaseOK;
-    coi.setLoggedIn = setLoggedIn;
-    coi.setConnectInfoTryable = setConnectInfoTryable;
-    coi.setCon = setCon;
-    coi.retryGetDatabaseLoginInfo = retryGetDatabaseLoginInfo;
-    return (coi);
+function addMethodsToConnectionInfoObject(cio) {
+    cio.tryToLogin = tryToLogin;
+    cio.isDatabaseStillOK = isDatabaseStillOK;
+    cio.isDatabaseOK = isDatabaseOK;
+    cio.setLoggedIn = setLoggedIn;
+    cio.setConnectInfoTryable = setConnectInfoTryable;
+    cio.setCon = setCon;
+    cio.retryGetDatabaseLoginInfo = retryGetDatabaseLoginInfo;
+    return (cio);
 }
 
 //  The object is created per session so that the code can keep track
@@ -246,38 +244,33 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
         password: this.password,
         database: this.database
     });
-    var sessionStore = new MySQLStore({}, con);
-    // con is an object associated with its own methods -- have to save current object in con
-    sessionStore.connectInfoSession = this;
-    sessionStore.res = res;		// need to save browser response object too
-    // we are not responding to mysql database
-
-    // we have no reason to doubt these parameters -- we
-    // update the per browser session parameters
-
-    // note that connection info may be valid but connection
-    // may fail
+    // not needed
+    // var sessionStore = new MySQLStore({}, con);
 
     this.setCon(con);
+    // this.makeconnection(res, this);
+
+    var cio = this;
+    var orires = res;
     con.connect(function (err) {
         if (err) {
             console.log("Need to retry with new connect info!");
             // different this
-            this.connectInfoSession.setConnectInfoTryable(false);
-            if (this.res)
-                this.res.render('index', {title: 'MySQL Reconnect'},
+            cio.setConnectInfoTryable(false);
+            if (res)
+                res.render('index', {title: 'MySQL Reconnect'},
                     function (err, html) {
                         if (err != null) {
                             console.log(err);
                         } else {
                             console.log(html); // the MySQL Login form
-                            this.res.send(html);
+                            res.send(html);
                         }
                     });
         } else {
             console.log("Connected to MySQL server!");
-            this.connectInfoSession.setConnectInfoTryable(true);
-            this.connectInfoSession.isDatabaseOK(res);
+            cio.setConnectInfoTryable(true);
+            cio.isDatabaseOK(orires);
         }
     });
 }
@@ -362,50 +355,52 @@ var isDatabaseStillOK = function (queryinfo, res) {
 var isDatabaseOK = function (res) {
     // if res is non-null, there is a browser session to which there must be response
     var testingDataBase = asyncErrDomain.create();
+    var orires = res;
+    var cio = this;
     testingDataBase.on('error', function (err) {
         console.log("Could not get to Users datatable.")
         console.log("Is the correct MySQL server selected?")
-        setConnectInfoTryable(false);
-        setLoggedIn(false);
-        if (res != null)
-            res.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
+        cio.setConnectInfoTryable(false);
+        cio.setLoggedIn(false);
+        if (orires != null) // remnant of old code?
+            orires.render('index', {title: 'MySQL Reconnect Page'}, function (err, html) {
                 if (err != null) {
                     console.log(err);
                 } else {
                     console.log(html); // the MySQL Login form
-                    res.send(html);
+                    orires.send(html);
                 }
             });
     });
 
     testingDataBase.run(function () {
-        this.connectinfo.query("show databases;", function (err, result) {
+        cio.connection.query("show databases;", function (err, result) {
             if (err)
                 throw err;
             console.log("Available Databases: ");
             for (idb = 0; idb < result.length; ++idb) {
                 console.log(result[idb]);
             }
-            this.connectinfo.query("use " + this.database + ";", function (err, result) {
+            cio.connection.query("use " + cio.database + ";", function (err, result) {
                 if (err)
                     throw err;
                 console.log(result);
-                this.connectinfo.con.query("show tables;", function (err, result) {
+                cio.connection.query("show tables;", function (err, result) {
                     if (err)
                         throw err;
                     console.log(result);
-                    this.connectinfo.query("describe Users;", function (err, result) {
+                    cio.connection.query("describe Users;", function (err, result) {
                         if (err)
                             throw err;
                         console.log(result);
-                        setLoggedIn(true);
-                        if (res)
-                            res.render('users', {title: 'Users Management Page'}, function (err, html) {
+                        cio.setLoggedIn(true);
+                        if (orires) // remnant of old code?
+                            orires.render('users', {title: 'Users Management Page'}, function (err, html) {
                                 if (err != null) {
                                     console.log(err);
                                 } else {
                                     console.log(html);
-                                    res.send(html);
+                                    orires.send(html);
                                 }
                             });
                     });
