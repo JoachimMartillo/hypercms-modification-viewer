@@ -7,7 +7,7 @@ block content
                 h1.display-4.m-b-2
                 p Welcome to MySQL Database Login Form
                 // register form
-                form(method='POST' action='/hostname')
+                form(method='POST', action='/hostname')
                     div.form-group
                         label(for='servername') Database Server (#{db_server_ph}):
                         input#servername.form-control(type='text', name='servername')

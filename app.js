@@ -6,7 +6,6 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var Promise = require('promise'); // Promise may make domain unnecessary
-var asyncErrDomain = require('domain');
 // This may not be the best library
 
 var webStart = require('./routes/index');
@@ -14,18 +13,14 @@ var userManage = require('./routes/users');
 var session = require('express-session');
 // Not Needed
 // var MySQLStore = require('express-mysql-session')(session);
-
-
-
 // I think only the database connection info & the actual connection
 // needs to be stored in the session data Default database server,
 // database user, database password can be grabbed from environment
 // Different users of this microservice should be able to log into
 // different databases.
-
 //set up webStart object, which handles web login to MySQL server.
-
 webStart.userManage = userManage;
+userManage.webStart = webStart;
 
 //set up userManage object, which handles viewing or modifying Users
 //data table.
@@ -33,13 +28,10 @@ var app = express(); // this is the basic express app routing engine
 // just like to know start time -- I always add this line for logging
 var dateString = new Date().toUTCString();
 console.log('Starting server at ' + dateString); // print out start time to console
-
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-
 // I still don't understand how to use favicon app.use(favicon());
-
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
@@ -48,9 +40,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({secret: 'this-is-a-secret-token', cookie: {maxAge: 60000}}));
 
 // set up routes
-
-app.use('/', webStart);
-app.use('/userdisplay', userManage);
+app.use('/', webStart);/* deal with logging into database. */
+app.use('/usermanagement', userManage);/* deal with individual users. */
 
 // This route processes the incoming connection data -- the user may
 // punt to defaults -- I will move this routes directory.
@@ -105,6 +96,5 @@ app.use(function (err, req, res, next) {
     });
 });
 
-/* Functions */
 
 module.exports = app;
