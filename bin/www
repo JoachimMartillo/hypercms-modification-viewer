@@ -2,6 +2,8 @@
 var debug = require('debug')('hyperactive-user-manager');
 var app = require('../app');
 
+// I usually only make one change to this module.
+// I customize the port environment value for the server
 app.set('port', process.env.HUMPORT || 3000);
 
 var server = app.listen(app.get('port'), function() {

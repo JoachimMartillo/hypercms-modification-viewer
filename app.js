@@ -1,31 +1,39 @@
-var express = require('express'); // I probably use too many
-// semicolons
+var express = require('express');
 var path = require('path');
 var favicon = require('static-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var Promise = require('promise'); // Promise may make domain unnecessary
-// This may not be the best library
+// Promise may make domain unnecessary
+// Probably callbacks should be resplaced
+// with promises
+var Promise = require('promise'); 
 
+// it's hard to keep the routes completely
+// isolated. It may be silly but I prefer
+// to require a package as few times as possible.
+
+// I am stuck requiring the express package
+// multiple times
+
+// I prefer to give the route packages more
+// descriptive names
 var webStart = require('./routes/index');
 var userManage = require('./routes/users');
+
+// sessions are usually necessary for servers
+// that have multiple users
 var session = require('express-session');
-// Not Needed
-// var MySQLStore = require('express-mysql-session')(session);
-// I think only the database connection info & the actual connection
-// needs to be stored in the session data Default database server,
-// database user, database password can be grabbed from environment
-// Different users of this microservice should be able to log into
-// different databases.
-//set up webStart object, which handles web login to MySQL server.
+
+// userManage is more likely to need data
+// & methods from webstart	
 webStart.userManage = userManage;
 userManage.webStart = webStart;
 
-//set up userManage object, which handles viewing or modifying Users
-//data table.
 var app = express(); // this is the basic express app routing engine
+
 // just like to know start time -- I always add this line for logging
+
 var dateString = new Date().toUTCString();
 console.log('Starting server at ' + dateString); // print out start time to console
 // view engine setup
@@ -43,28 +51,6 @@ app.use(session({secret: 'this-is-a-secret-token', cookie: {maxAge: 60000}}));
 app.use('/', webStart);/* deal with logging into database. */
 app.use('/usermanagement', userManage);/* deal with individual users. */
 
-// This route processes the incoming connection data -- the user may
-// punt to defaults -- I will move this routes directory.
-
-/*
-app.post('/usermanagement', upload.none(), function (req, res, next) {
-    var queryinfo = {
-        email: req.body.email,
-        hcmspassword: req.body.hcmspassword,
-        confirmPassword: req.body.confirmPassword,
-        lastname: req.body.lastname,
-        firstname: req.body.firstname,
-        middlename: req.body.middlename,
-        phone: req.body.phone,
-        jobTitle: req.body.jobTitle,
-        role: req.body.role,
-        button_create: req.body.button_create,
-        button_view: req.body.button_view,
-        button_edit: req.body.button_edit
-    };
-    req.session.connectInfoSession.isDatabaseStillOK(queryinfo, res);
-});
-*/
 /// catch 404 and forwarding to error handler
 app.use(function (req, res, next) {
     var err = new Error('Not Found');
