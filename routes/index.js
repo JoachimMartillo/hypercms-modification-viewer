@@ -65,6 +65,19 @@ router.post('/hostname', router.upload.none(), function (req, res, next) {
 // Because there are no form entries,
 // a GET would also work
 
+var userdefaults = {
+    url: "https://interestingengineering.com/tommy-flowers-the-man-who-built-colossus",
+    email_ph: 'Tommy.Flowers@colossus.GPO.UK.gov',
+    hcmspassword_ph: '0123456789',
+    confirmPassword_ph: '0123456789',
+    lastname_ph: 'Doe',
+    firstname_ph: 'John',
+    middlename_ph: 'Anonymous',
+    phone_ph: '(555) 555-5555',
+    jobTitle_ph: 'wage slave',
+    role_ph: 'editor/admin/superadmin'
+};
+
 router.post('/dbpause', upload.none(), function (req, res, next) {
     var cio = req.session.connectInfoSession;
     var ss = new router.sessShadowBuilder(cio);
@@ -73,15 +86,15 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
         continue: req.body.button_continue
     }
     var conn = router.connHashMap.get(req.sessionID);
-    if(conn == undefined)
-	conn = null;
-    
+    if (conn == undefined)
+        conn = null;
+
     if (whattodo.cancel == "cancel") {
         try {
             router.connHashMap.delete(req.sessionID);
-	    if(conn != null) {
-		conn.destroy();	// close database connection
-	    }
+            if (conn != null) {
+                conn.destroy();	// close database connection
+            }
             // destroy session
             req.session.destroy(function (err) {
                 // cannot access session here
@@ -106,28 +119,27 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
             console.log("Some errors may be specific to development: " + error);
             //    Should the program exit?
         }
-    } else if(conn != null) {
-        res.render('users', {
-	    title: "HyperCMS User Account: " + ss.getSessionID(res.req),
-        }, function (err, html) {
-	    if (err != null) {
+    } else if (conn != null) {
+	userdefaults.title = "HyperCMS User Account: " + ss.getSessionID(res.req);
+        res.render('users', userdefaults, function (err, html) {
+            if (err != null) {
                 console.log(err);
-	    } else {
+            } else {
                 // html value comes from rendering the Jade template.
                 console.log(html);
                 res.send(html);
-	    }
+            }
         });
     } else {
         res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
-		   function (err, html) {
-		       if (err != null) {
-			   console.log(err);
-		       } else {
-			   console.log(html); // the MySQL Login form
-			   res.send(html);
-		       }
-		   });
+            function (err, html) {
+                if (err != null) {
+                    console.log(err);
+                } else {
+                    console.log(html); // the MySQL Login form
+                    res.send(html);
+                }
+            });
     }
 });
 

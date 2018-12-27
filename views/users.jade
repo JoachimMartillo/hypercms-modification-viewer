@@ -11,35 +11,36 @@ block content
                     | other fields will be identified.
                     | The browser user may edit a HyperCMS user. On edit, identify the HyperCMS user by email and
                     | any field to be changed.
-                // register form
+                    br
+                    a(href=url) Click here to learn about Tommy Flowers!
                 form(method='POST' action='/usermanagement')
                     div.form-group
                         label(for='email') Email:
-                        input#email.form-control(type='text', name='email')
+                        input#email.form-control(type='text', placeholder=email_ph, name='email')
                     div.form-group
                         label(for='hcmspassword') HyperCMS Password:
-                        input#hcmspassword.form-control(type='password', name='hcmspassword')
+                        input#hcmspassword.form-control(type='password', placeholder=hcmspassword_ph, name='hcmspassword')
                     div.form-group
                         label(for='confirmPassword') Confirm Password:
-                        input#confirmPassword.form-control(type='password', name='confirmPassword')
+                        input#confirmPassword.form-control(type='password', placeholder=confirmPassword_ph, name='confirmPassword')
                     div.form-group
                         label(for='lastname') Last Name:
-                        input#lastname.form-control(type='text', name='lastname')
+                        input#lastname.form-control(type='text', placeholder=lastname_ph, name='lastname')
                     div.form-group
                         label(for='firstname') First Name:
-                        input#firstname.form-control(type='text', name='firstname')
+                        input#firstname.form-control(type='text', placeholder=firstname_ph, name='firstname')
                     div.form-group
                         label(for='middlename') Middle Name:
-                        input#middlename.form-control(type='text', name='middlename')
+                        input#middlename.form-control(type='text', placeholder=middlename_ph, name='middlename')
                     div.form-group
                         label(for='phone') Phone:
-                        input#phone.form-control(type='text', name='phone')
+                        input#phone.form-control(type='text', placeholder=phone_ph, name='phone')
                     div.form-group
                         label(for='jobTitle') Job Title:
-                        input#jobTitle.form-control(type='text', name='jobTitle')
+                        input#jobTitle.form-control(type='text', placeholder=jobTitle_ph, name='jobTitle')
                     div.form-group
-                        label(for='role') Job Title:
-                        input#role.form-control(type='text', name='role')
+                        label(for='role') Role:
+                        input#role.form-control(type='text', placeholder=role_ph, name='role')
                 button.btn.btn-primary(type='submit', name='button_create', value='create') create
                 button.btn.btn-primary(type='submit', name='button_edit', value='edit') edit
                 button.btn.btn-primary(type='submit', name='button_view', value='view') view
