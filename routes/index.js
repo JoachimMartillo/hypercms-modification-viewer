@@ -74,8 +74,7 @@ var userdefaults = {
     firstname_ph: 'John',
     middlename_ph: 'Anonymous',
     phone_ph: '(555) 555-5555',
-    jobTitle_ph: 'wage slave',
-    role_ph: 'editor/admin/superadmin'
+    jobTitle_ph: 'wage slave'
 };
 
 router.post('/dbpause', upload.none(), function (req, res, next) {
@@ -85,13 +84,14 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
         cancel: req.body.button_cancel,
         continue: req.body.button_continue
     }
-    var conn = router.connHashMap.get(req.sessionID);
+    var conn = router.connHashMap.get("con+" + req.sessionID);
     if (conn == undefined)
         conn = null;
 
     if (whattodo.cancel == "cancel") {
         try {
-            router.connHashMap.delete(req.sessionID);
+            router.connHashMap.delete("con+" + req.sessionID);
+	    router.connHashMap.delete("roles+" + req.sessionID);
             if (conn != null) {
                 conn.destroy();	// close database connection
             }
@@ -120,16 +120,19 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
             //    Should the program exit?
         }
     } else if (conn != null) {
-	userdefaults.title = "HyperCMS User Account: " + ss.getSessionID(res.req);
-        res.render('users', userdefaults, function (err, html) {
-            if (err != null) {
-                console.log(err);
-            } else {
-                // html value comes from rendering the Jade template.
-                console.log(html);
-                res.send(html);
-            }
-        });
+        res.render('users',
+		   Object.assign(Object.assign(Object.assign({}, userdefaults),
+					       {title: "HyperCMS User Account: " + ss.getSessionID(res.req)}),
+				 {role_ph: router.connHashMap.get("roles+" + res.req.sessionID)}),
+		   function (err, html) {
+                       if (err != null) {
+			   console.log(err);
+                       } else {
+			   // html value comes from rendering the Jade template.
+			   console.log(html);
+			   res.send(html);
+                       }
+		   });
     } else {
         res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
             function (err, html) {
@@ -147,17 +150,14 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
 
 /* Constructors */
 
-function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase, isConnectInfoTryable, loggedIn, roles) {
+function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase, isConnectInfoTryable) {
     // session field
     this.host = dbhost;
     this.user = dbuser;
     this.password = dbpassword;
     this.database = dbdatabase;
-    // database info fields
-    this.roles = roles;
     // boolean fields
     this.isConnectInfoTryable = isConnectInfoTryable;
-    this.loggedIn = loggedIn;
 }
 
 function SessionShadow(cio) {
@@ -184,14 +184,9 @@ function SessionShadow(cio) {
     this.getPassword = getPassword;
     this.setDatabase = setDatabase;
     this.getDatabase = getDatabase;
-    // from database
-    this.setRoles = setRoles;
-    this.getRoles = getRoles;
     // status info
     this.setConnectInfoTryable = setConnectInfoTryable;
     this.getConnectInfoTryable = getConnectInfoTryable;
-    this.setLoggedIn = setLoggedIn;
-    this.getLoggedIn = getLoggedIn;
 }
 
 /* SessionID is set by the session package on reception*/
@@ -225,24 +220,14 @@ var setDatabase = function (val) {
 var getDatabase = function () {
     return (this.cio.database);
 }
-var setRoles = function (tables) {
-    this.cio.roles = tables;
-}
-var getRoles = function (tables) {
-    return (this.cio.roles);
-}
+
 var setConnectInfoTryable = function (status) {
     this.cio.isConnectInfoTryable = status;
 };
 var getConnectInfoTryable = function (status) {
     return (this.cio.isConnectInfoTryable);
 };
-var setLoggedIn = function (status) {
-    this.cio.loggedIn = status;
-};
-var getLoggedIn = function (status) {
-    return (this.cio.loggedIn);
-};
+
 
 var tryToLogin = function (newconnectinfo, confirmPassword, res) {
     var ss = this;
@@ -293,7 +278,10 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
             console.log("Connected to MySQL server!");
             ss.setConnectInfoTryable(true);
             ss.isDatabaseOK(con, res);
-            if (ss.getLoggedIn()) {
+	    var valid = router.connHashMap.get("con+" + res.req.sessionID);
+	    if (valid == undefined)
+		valid = null;
+            if (valid != null) { // a quick successful connect to database
                 res.render('users', {title: 'Choose User ' + ss.getSessionID(res.req)},
                     function (err, html) {
                         if (err != null) {
@@ -374,13 +362,14 @@ var isDatabaseOK = function (con, res) {
                                 console.log("No databases!")
                                 throw err;
                             }
-                            ss.setRoles(result);/* should be okay -- we are past error */
                             console.log("Available Roles: ");
                             var roles = "";
                             for (var idb = 0; idb < result.length; ++idb) {
                                 console.log(result[idb]);
-                                roles += result[idb];
+                                roles += result[idb].code + (((result.length - idb) > 1) ? "/" : "");
                             }
+			    router.connHashMap.set("roles+" + res.req.sessionID, roles);
+                            console.log("Roles are: " + roles);
                             con.query("describe Users;", function (err, result) {
                                 if (err) {
                                     console.log("Unable to describe Users!");
@@ -388,8 +377,7 @@ var isDatabaseOK = function (con, res) {
                                 }
                                 console.log(result);
                                 // Here we add new entry to hashmap.
-                                router.connHashMap.set(res.req.sessionID, con);
-                                ss.setLoggedIn(true);
+                                router.connHashMap.set("con+" + res.req.sessionID, con);
                                 console.log("Logged in!")
                             });
                         });
