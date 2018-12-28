@@ -135,8 +135,7 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
 			   res.send(html);
                        }
 		   });
-    } else {
-        res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
+    } else res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
             function (err, html) {
                 if (err != null) {
                     console.log(err);
@@ -145,7 +144,6 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
                     res.send(html);
                 }
             });
-    }
 });
 
 // The ConnectInfo object must be serializable into JSON -- hence one object for fields & one for methods
