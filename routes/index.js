@@ -77,6 +77,8 @@ var userdefaults = {
     jobTitle_ph: 'wage slave'
 };
 
+router.userdefaults = userdefaults;
+
 router.post('/dbpause', upload.none(), function (req, res, next) {
     var cio = req.session.connectInfoSession;
     var ss = new router.sessShadowBuilder(cio);
