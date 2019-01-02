@@ -226,9 +226,9 @@ router.get('/nextaction', function (req, res, next) {
         var con = router.webStart.connHashTable.get("con+" + res.req.sessionID);
         if (con == undefined)
             con = null;
-        router.webStart.cancel_current_session(con, req);
+        router.webStart.cancel_current_session(con, req, res);
     } else {
-        router.webStart.start_new_user(ss, res);
+        router.webStart.start_new_user(ss, req, res);
     }
 });
 

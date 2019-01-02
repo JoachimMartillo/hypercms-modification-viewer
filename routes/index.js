@@ -14,7 +14,7 @@ router.sessConnectInfoBuilder = ConnectInfo;
 router.sessShadowBuilder = SessionShadow;
 router.upload = upload;
 router.connHashTable = new HashTable();
-router.cancel_current_session = function (conn, req) {
+router.cancel_current_session = function (conn, req, res) {
     try {
         router.connHashTable.remove("con+" + req.sessionID);
         router.connHashTable.remove("roles+" + req.sessionID);
@@ -30,7 +30,7 @@ router.cancel_current_session = function (conn, req) {
             if (err) {
                 console.log(err);
             } else {
-                req.res.render('restart', {
+                res.render('restart', {
                     title: "New Session",
                     url: '/'
                 }, function (err, html) {
@@ -39,7 +39,7 @@ router.cancel_current_session = function (conn, req) {
                     } else {
                         // html value comes from rendering the Jade template.
                         console.log(html);
-                        req.res.send(html);
+                        res.send(html);
                     }
                 });
             }
@@ -50,17 +50,17 @@ router.cancel_current_session = function (conn, req) {
     }
 }
 
-router.start_new_user = function (ss, res) {
+router.start_new_user = function (ss, req, res) {
     res.render('users',
         Object.assign(Object.assign(Object.assign({}, userdefaults),
-            {title: "HyperCMS User Account: " + ss.getSessionID(res.req)}),
+            {title: "HyperCMS User Account: " + req.sessionID}),
             {role_ph: router.connHashTable.get("roles+" + res.req.sessionID)}),
         function (err, html) {
             if (err != null) {
                 console.log(err);
             } else {
-                router.connHashTable.remove("query+" + res.req.sessionID);
-                router.connHashTable.remove("query2+" + res.req.sessionID);
+                router.connHashTable.remove("query+" + req.sessionID);
+                router.connHashTable.remove("query2+" + req.sessionID);
                 // html value comes from rendering the Jade template.
                 console.log(html);
                 res.send(html);
@@ -143,9 +143,9 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
         conn = null;
 
     if (whattodo.cancel == "cancel") {
-        router.cancel_current_session(conn, req);
+        router.cancel_current_session(conn, req, res);
     } else if (conn != null) {
-        router.start_new_user(ss, res);
+        router.start_new_user(ss, req, res);
     } else res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
         function (err, html) {
             if (err != null) {
