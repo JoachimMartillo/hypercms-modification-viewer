@@ -3,10 +3,9 @@ var router = express.Router();
 var multer = require('multer'); // multer handles forms posted to the
 // server
 var upload = multer();
-var HashMap = require('hashmap');
+var HashTable = require('hashtable');
 var mysql = require('mysql');
 var asyncErrDomain = require('domain');
-var Hashmap = require('hashmap');
 
 //basic data & function which should be available
 // outside this module
@@ -14,7 +13,60 @@ router.connectinfoENV = getEnvConnectInfo();
 router.sessConnectInfoBuilder = ConnectInfo;
 router.sessShadowBuilder = SessionShadow;
 router.upload = upload;
-router.connHashMap = new Hashmap();
+router.connHashTable = new HashTable();
+router.cancel_current_session = function (conn, req) {
+    try {
+        router.connHashTable.remove("con+" + req.sessionID);
+        router.connHashTable.remove("roles+" + req.sessionID);
+        router.connHashTable.remove("rolesTable+" + req.sessionID);
+        router.connHashTable.remove("query+" + req.sessionID);
+        router.connHashTable.remove("query2+" + req.sessionID);
+        if (conn != null) {
+            conn.destroy();	// close database connection
+        }
+        // destroy session
+        req.session.destroy(function (err) {
+            // cannot access session here
+            if (err) {
+                console.log(err);
+            } else {
+                req.res.render('restart', {
+                    title: "New Session",
+                    url: '/'
+                }, function (err, html) {
+                    if (err != null) {
+                        console.log(err);
+                    } else {
+                        // html value comes from rendering the Jade template.
+                        console.log(html);
+                        req.res.send(html);
+                    }
+                });
+            }
+        });
+    } catch (error) {
+        console.log("Some errors may be specific to development: " + error);
+        //    Should the program exit?
+    }
+}
+
+router.start_new_user = function (ss, res) {
+    res.render('users',
+        Object.assign(Object.assign(Object.assign({}, userdefaults),
+            {title: "HyperCMS User Account: " + ss.getSessionID(res.req)}),
+            {role_ph: router.connHashTable.get("roles+" + res.req.sessionID)}),
+        function (err, html) {
+            if (err != null) {
+                console.log(err);
+            } else {
+                router.connHashTable.remove("query+" + res.req.sessionID);
+                router.connHashTable.remove("query2+" + res.req.sessionID);
+                // html value comes from rendering the Jade template.
+                console.log(html);
+                res.send(html);
+            }
+        });
+}
 
 /* Setting up routes callbacks */
 router.get('/', function (req, res, next) {
@@ -86,64 +138,23 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
         cancel: req.body.button_cancel,
         continue: req.body.button_continue
     }
-    var conn = router.connHashMap.get("con+" + req.sessionID);
+    var conn = router.connHashTable.get("con+" + req.sessionID);
     if (conn == undefined)
         conn = null;
 
     if (whattodo.cancel == "cancel") {
-        try {
-            router.connHashMap.delete("con+" + req.sessionID);
-	    router.connHashMap.delete("roles+" + req.sessionID);
-            if (conn != null) {
-                conn.destroy();	// close database connection
-            }
-            // destroy session
-            req.session.destroy(function (err) {
-                // cannot access session here
-                if (err) {
-                    console.log(err);
-                } else {
-                    res.render('restart', {
-                        title: "New Session",
-                        url: '/'
-                    }, function (err, html) {
-                        if (err != null) {
-                            console.log(err);
-                        } else {
-                            // html value comes from rendering the Jade template.
-                            console.log(html);
-                            res.send(html);
-                        }
-                    });
-                }
-            });
-        } catch (error) {
-            console.log("Some errors may be specific to development: " + error);
-            //    Should the program exit?
-        }
+        router.cancel_current_session(conn, req);
     } else if (conn != null) {
-        res.render('users',
-		   Object.assign(Object.assign(Object.assign({}, userdefaults),
-					       {title: "HyperCMS User Account: " + ss.getSessionID(res.req)}),
-				 {role_ph: router.connHashMap.get("roles+" + res.req.sessionID)}),
-		   function (err, html) {
-                       if (err != null) {
-			   console.log(err);
-                       } else {
-			   // html value comes from rendering the Jade template.
-			   console.log(html);
-			   res.send(html);
-                       }
-		   });
+        router.start_new_user(ss, res);
     } else res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
-            function (err, html) {
-                if (err != null) {
-                    console.log(err);
-                } else {
-                    console.log(html); // the MySQL Login form
-                    res.send(html);
-                }
-            });
+        function (err, html) {
+            if (err != null) {
+                console.log(err);
+            } else {
+                console.log(html); // the MySQL Login form
+                res.send(html);
+            }
+        });
 });
 
 // The ConnectInfo object must be serializable into JSON -- hence one object for fields & one for methods
@@ -190,7 +201,8 @@ function SessionShadow(cio) {
 }
 
 /* SessionID is set by the session package on reception*/
-/* of the original get request */
+/* of the original get request. This getter may not be*/
+/* be needed -- maybe arg should be res & not req. */
 var getSessionID = function getSessionID(req) {
     return (req.sessionID);
 }
@@ -278,9 +290,9 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
             console.log("Connected to MySQL server!");
             ss.setConnectInfoTryable(true);
             ss.isDatabaseOK(con, res);
-	    var valid = router.connHashMap.get("con+" + res.req.sessionID);
-	    if (valid == undefined)
-		valid = null;
+            var valid = router.connHashTable.get("con+" + res.req.sessionID);
+            if (valid == undefined)
+                valid = null;
             if (valid != null) { // a quick successful connect to database
                 res.render('users', {title: 'Choose User ' + ss.getSessionID(res.req)},
                     function (err, html) {
@@ -326,7 +338,7 @@ var isDatabaseOK = function (con, res) {
             });
     });
     // we depend on the closure for the correct con object
-    // I suppose we could use the hashmap, but then we would depend on
+    // I suppose we could use the hashtable, but then we would depend on
     // getting correct req.sessionID from res.req.
     testingDataBase.run(function () {
         // This should be rewritten as chained promises
@@ -368,7 +380,8 @@ var isDatabaseOK = function (con, res) {
                                 console.log(result[idb]);
                                 roles += result[idb].code + (((result.length - idb) > 1) ? "/" : "");
                             }
-			    router.connHashMap.set("roles+" + res.req.sessionID, roles);
+                            router.connHashTable.put("roles+" + res.req.sessionID, roles);
+                            router.connHashTable.put("rolesTable+" + res.req.sessionID, result);
                             console.log("Roles are: " + roles);
                             con.query("describe Users;", function (err, result) {
                                 if (err) {
@@ -376,8 +389,8 @@ var isDatabaseOK = function (con, res) {
                                     throw err;
                                 }
                                 console.log(result);
-                                // Here we add new entry to hashmap.
-                                router.connHashMap.set("con+" + res.req.sessionID, con);
+                                // Here we add new entry to hashtable.
+                                router.connHashTable.put("con+" + res.req.sessionID, con);
                                 console.log("Logged in!")
                             });
                         });

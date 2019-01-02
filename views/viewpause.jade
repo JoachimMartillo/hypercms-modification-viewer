@@ -7,6 +7,7 @@ block content
                 h1.display-4.m-b-2 Waiting for Database Check to Finish
                 p Click button for desired action!
                 // waiting for data base
-                form(method='POST', action='/dbpause')
-                    button.btn.btn-primary(type='submit', name='button_cancel', value='cancel') Cancel view?
-                    button.btn.btn-primary(type='submit', name='button_continue', value='continue') Continue to wait?
+                form(method='POST', action='/usermanagement/viewpause')
+                    button.btn.btn-primary(type='submit', name='button_cancel', value='cancel_session') Cancel session?
+                    button.btn.btn-primary(type='submit', name='button_continue', value='continue') Continue waiting for database?
+                    button.btn.btn-primary(type='submit', name='button_new', value='new') New user action?
