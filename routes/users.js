@@ -12,12 +12,29 @@ var mysql = require('mysql');
 router.mysql = mysql;
 var asyncErrDomain = require('domain');
 
+function view_pause(req, res) {
+    res.render('viewpause', {title: 'User not yet ready: ' + req.sessionID}, function (err, html) {
+        if (err != null) {
+            console.log(err);
+        } else {
+            console.log(html); // the MySQL Login form
+            res.send(html);
+        }
+    });
+}
+
 function get_and_store_record_data(button, email, con, req, res) {
+    var hcmsuserinfo = router.webStart.connHashTable.get("newuserdata+" + req.sessionID);
+    var rolestable = router.webStart.connHashTable.get("rolesTable+" + req.sessionID);
     var query = null;
     var user_uuid = null;
     var query2 = null;
+    // These two variables should work for both edit & create.
+    var sql_insert = null;
+    var sql_insert2 = null;
+    var query4 = null;
 
-    if(button == 'view') {
+    if (button == 'view') {
         query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
         con.query(query, function (err, result) {
             if (err) {
@@ -44,11 +61,13 @@ function get_and_store_record_data(button, email, con, req, res) {
                 router.webStart.connHashTable.put("query2+" + req.sessionID, result);
             });
         });
-    } else if(button == 'create') {
+        //This routine must be executed to respond to the post request.
+        view_pause(req, res);
+    } else if (button == 'create') {
         query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
         con.query(query, function (err, result) {
             if (err) {
-                console.log("crete query failed!")
+                console.log("create query failed!")
                 throw err;
             }
             console.log("HyperCMS user data: ");
@@ -56,58 +75,157 @@ function get_and_store_record_data(button, email, con, req, res) {
                 console.log(result[idb]);
             }
             router.webStart.connHashTable.put("query+" + req.sessionID, result);
-            user_uuid = result[0].uuid;
-            query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid + '\'' + ';';
-            con.query(query2, function (err, result) {
-                if (err) {
-                    console.log("create query2 failed!")
-                    throw err;
-                }
-                console.log("HyperCMS user-role data: ");
-                for (var idb = 0; idb < result.length; ++idb) {
-                    console.log(result[idb]);
-                }
-                /*This is much more complex than it should be.*/
-                router.webStart.connHashTable.put("query2+" + req.sessionID, result);
-            });
+            if (result.length != 0) {/* If creation, there should be no records */
+                //    just view the record
+                user_uuid = result[0].uuid;
+                query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid + '\'' + ';';
+                con.query(query2, function (err, result) {
+                    if (err) {
+                        console.log("create query2 failed!")
+                        throw err;
+                    }
+                    console.log("HyperCMS user-role data: ");
+                    for (var idb = 0; idb < result.length; ++idb) {
+                        console.log(result[idb]);
+                    }
+                    /*This is much more complex than it should be.*/
+                    router.webStart.connHashTable.put("query2+" + req.sessionID, result);
+                    hcmsuserinfo.button = 'view';
+                });
+            } else {
+                // here us the create prologue
+                const create_time = datetime.create().format('Y/m/d H:M:S');
+                const user_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
+                const userroles_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
+
+                var row = {
+                    uuid: user_uuid_value,
+                    created_at: create_time,
+                    modified_at: create_time,
+                    email: email,
+                    password: hcmsuserinfo.password,
+                    last_name: hcmsuserinfo.lastname,
+                    first_name: hcmsuserinfo.firstname,
+                    middle_name: hcmsuserinfo.middlename,
+                    phone: hcmsuserinfo.phone,
+                    job_title: hcmsuserinfo.jobTitle,
+                    SSR: 'North American',
+                    registered_on: create_time,
+                    default_library_uuid: "2a0046e8-4884-11e2-a2bc-001ec9b84463"/* I don't know why this is set*/
+                };
+
+                var userroles_row = {
+                    uuid: userroles_uuid_value,
+                    role_uuid: "", /* need to fill in this value */
+                    user_uuid: user_uuid_value
+                };
+                sql_insert = 'INSERT INTO Users (uuid, created_at, modified_at, email, password, last_name, ' +
+                    'first_name, middle_name, phone, job_title, SSR, registered_on, default_library_uuid) VALUES ' +
+                    '(' + row.uuid + ',' + row.created_at + ',' + row.modified_at + ',' + row.email + ',' +
+                    row.password + ',' + row.last_name + ',' + row.first_name + ',' + row.middle_name +
+                    ',' + row.phone + ',' + row.job_title + ',' + row.SSR + ',' +
+                    row.registered_on + ',' + row.default_library_uuid + ');';
+                con.query(sql_insert, function (err, result) {
+                    if (err) {
+                        console.log("create sql_insert failed!")
+                        throw err;
+                    }
+                    console.log("Insert result: ");
+                    console.log(result);
+                    //    let's insert into UserRoles table
+                    hcmsuserinfo.role = hcmsuserinfo.role.toLowerCase();
+                    //row 0 is editor
+                    userroles_row.role_uuid = rolestable[0].uuid;
+                    for (var i = 0; i < rolestable.length; ++i) {
+                        if (rolestable[i].code == hcmsuserinfo.role) {
+                            userroles_row.role_uuid = rolestable[i].uuid;
+                            break;
+                        }
+                    }
+                    sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' +
+                        '(' + userroles_row.uuid + ',' + userroles_row.role_uuid + ',' + userroles_row.user_uuid + ');';
+                    con.query(sql_insert2, function (err, result) {
+                        if (err) {
+                            console.log("create sql_insert2 failed!")
+                            throw err;
+                        }
+                        console.log("Insert2 result: ");
+                        console.log(result);
+                        // The structure below is contained in the hashtable, or it should be.
+                        // now we can view
+                        hcmsuserinfo.button = 'view';
+                        // This may be logically contorted because we waited for some of database work
+                        get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
+                    });
+                });
+            }
         });
-    } else if(button == 'edit') {
-        query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
-        con.query(query, function (err, result) {
+    } else if (button == 'edit') {
+        // here is the edit prologue
+        const create_time = datetime.create().format('Y/m/d H:M:S');
+        const user_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
+        const userroles_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
+
+        var row = {
+            uuid: user_uuid_value,
+            created_at: create_time,
+            modified_at: create_time,
+            email: email,
+            password: hcmsuserinfo.password,
+            last_name: hcmsuserinfo.lastname,
+            first_name: hcmsuserinfo.firstname,
+            middle_name: hcmsuserinfo.middlename,
+            phone: hcmsuserinfo.phone,
+            job_title: hcmsuserinfo.jobTitle,
+            SSR: 'North American',
+            registered_on: create_time,
+            default_library_uuid: "2a0046e8-4884-11e2-a2bc-001ec9b84463"/* I don't know why this is set*/
+        };
+
+        var userroles_row = {
+            uuid: userroles_uuid_value,
+            role_uuid: "", /* need to fill in this value */
+            user_uuid: user_uuid_value
+        };
+        sql_insert = 'INSERT INTO Users (uuid, created_at, modified_at, email, password, last_name, ' +
+            'first_name, middle_name, phone, job_title, SSR, registered_on, default_library_uuid) VALUES ' +
+            '(' + row.uuid + ',' + row.created_at + ',' + row.modified_at + ',' + row.email + ',' +
+            row.password + ',' + row.last_name + ',' + row.first_name + ',' + row.middle_name +
+            ',' + row.phone + ',' + row.job_title + ',' + row.SSR + ',' +
+            row.registered_on + ',' + row.default_library_uuid + ');';
+        con.query(sql_insert, function (err, result) {
             if (err) {
-                console.log("edit query failed!")
+                console.log("create sql_insert failed!")
                 throw err;
             }
-            console.log("HyperCMS user data: ");
-            for (var idb = 0; idb < result.length; ++idb) {
-                console.log(result[idb]);
+            console.log("Insert result: ");
+            console.log(result);
+            //    let's insert into UserRoles table
+            hcmsuserinfo.role = hcmsuserinfo.role.toLowerCase();
+            //row 0 is editor
+            userroles_row.role_uuid = rolestable[0].uuid;
+            for (var i = 0; i < rolestable.length; ++i) {
+                if (rolestable[i].code == hcmsuserinfo.role) {
+                    userroles_row.role_uuid = rolestable[i].uuid;
+                    break;
+                }
             }
-            router.webStart.connHashTable.put("query+" + req.sessionID, result);
-            user_uuid = result[0].uuid;
-            query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid + '\'' + ';';
-            con.query(query2, function (err, result) {
+            sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' + '(' + userroles_row.uuid + ',' + userroles_row.role_uuid + ',' + userroles_row.user_uuid + ');';
+            con.query(sql_insert2, function (err, result) {
                 if (err) {
-                    console.log("edit query2 failed!")
+                    console.log("create sql_insert2 failed!")
                     throw err;
                 }
-                console.log("HyperCMS user-role data: ");
-                for (var idb = 0; idb < result.length; ++idb) {
-                    console.log(result[idb]);
-                }
-                /*This is much more complex than it should be.*/
-                router.webStart.connHashTable.put("query2+" + req.sessionID, result);
+                console.log("Insert2 result: ");
+                console.log(result);
+                // The structure below is contained in the hashtable, or it should be.
+                // now we can view
+                hcmsuserinfo.button = 'view';
+                // this may be logically contorted because we waited for some of database work
+                get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
             });
         });
     }
-
-    res.render('viewpause', {title: 'User not yet ready: ' + req.sessionID}, function (err, html) {
-        if (err != null) {
-            console.log(err);
-        } else {
-            console.log(html); // the MySQL Login form
-            res.send(html);
-        }
-    });
 }
 
 // This line is executed on startup -- must be able to transform
@@ -115,7 +233,7 @@ function get_and_store_record_data(button, email, con, req, res) {
 router.post('/', router.upload.none(), function (req, res, next) {
     var cio = req.session.connectInfoSession;
     var ss = new router.webStart.sessShadowBuilder(cio); // This line is only executed
-    var con = router.webStart.connHashTable.get("con+" + res.req.sessionID);
+    var con = router.webStart.connHashTable.get("con+" + req.sessionID);
     // on callback
     // these values below come from the HTTP POST'd form after login is click'd
     var button = ((req.body.button_create == "create") ? "create" : "");
@@ -169,7 +287,7 @@ router.post('/', router.upload.none(), function (req, res, next) {
                     res.send(html);
                 }
             });
-        } else if(hcmsuserinfo.email == router.webStart.userdefaults.email_ph) {
+        } else if (hcmsuserinfo.email == router.webStart.userdefaults.email_ph) {
             /* Tommy Flowers doesn't exist in database. */
             /* I really dislike this indentation */
             res.render('users',
@@ -229,7 +347,9 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
                 res.send(html);
             }
         }); /* If queryresult2  */
-    } else if ((queryresult2 == undefined) || (queryresult2 == null)) {
+        // Need to process button associated with incoming post request
+        //    This button for view, create, edit
+    } else if ((hcmsuserinfo.button != 'view') || (queryresult2 == undefined) || (queryresult2 == null)) {
         res.render('viewpause', {title: 'User not yet ready: ' + ss.getSessionID(res.req)},
             function (err, html) {
                 if (err != null) {
@@ -249,15 +369,15 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
             }
         }
 
-        if(queryresult[0].last_name == null)
+        if (queryresult[0].last_name == null)
             queryresult[0].last_name = "";
-        if(queryresult[0].first_name == null)
+        if (queryresult[0].first_name == null)
             queryresult[0].first_name = "";
-        if(queryresult[0].middle_name == null)
+        if (queryresult[0].middle_name == null)
             queryresult[0].middle_name = "";
-        if(queryresult[0].phone == null)
+        if (queryresult[0].phone == null)
             queryresult[0].phone = "";
-        if(queryresult[0].job_title == null)
+        if (queryresult[0].job_title == null)
             queryresult[0].job_title = "";
 
         var initialization = {
@@ -272,7 +392,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
 
         res.render('userdisplay',
             Object.assign(Object.assign({}, initialization),
-                {title: "Database Result: " + ss.getSessionID(res.req)}),
+                {title: "Database Result: " + req.sessionID}),
             function (err, html) {
                 if (err != null) {
                     console.log(err);
@@ -289,8 +409,8 @@ router.get('/nextaction', function (req, res, next) {
     var cio = req.session.connectInfoSession;
     var ss = new router.webStart.sessShadowBuilder(cio); // This line is only executed
 
-    if(req.query.button_cancel == 'cancel_session') {
-        var con = router.webStart.connHashTable.get("con+" + res.req.sessionID);
+    if (req.query.button_cancel == 'cancel_session') {
+        var con = router.webStart.connHashTable.get("con+" + req.sessionID);
         if (con == undefined)
             con = null;
         router.webStart.cancel_current_session(con, req, res);

@@ -16,11 +16,14 @@ router.upload = upload;
 router.connHashTable = new HashTable();
 router.cancel_current_session = function (conn, req, res) {
     try {
+        // clear database part of session
         router.connHashTable.remove("con+" + req.sessionID);
         router.connHashTable.remove("roles+" + req.sessionID);
         router.connHashTable.remove("rolesTable+" + req.sessionID);
+        // clear user part of session
         router.connHashTable.remove("query+" + req.sessionID);
         router.connHashTable.remove("query2+" + req.sessionID);
+        router.connHashTable.remove("newuserdata+" + req.sessionID);
         if (conn != null) {
             conn.destroy();	// close database connection
         }
@@ -54,13 +57,15 @@ router.start_new_user = function (ss, req, res) {
     res.render('users',
         Object.assign(Object.assign(Object.assign({}, userdefaults),
             {title: "HyperCMS User Account: " + req.sessionID}),
-            {role_ph: router.connHashTable.get("roles+" + res.req.sessionID)}),
+            {role_ph: router.connHashTable.get("roles+" + req.sessionID)}),
         function (err, html) {
             if (err != null) {
                 console.log(err);
             } else {
+                // clear user session
                 router.connHashTable.remove("query+" + req.sessionID);
                 router.connHashTable.remove("query2+" + req.sessionID);
+                router.connHashTable.remove("newuserdata+" + req.sessionID);
                 // html value comes from rendering the Jade template.
                 console.log(html);
                 res.send(html);
@@ -104,11 +109,11 @@ router.post('/hostname', router.upload.none(), function (req, res, next) {
         database: req.body.database
     };
     // password must be confirmed to try to login
-    var status = ss.tryToLogin(newconnectinfo, req.body.confirmPassword, res);
+    var status = ss.tryToLogin(newconnectinfo, req.body.confirmPassword, req, res);
 
     if (status == false) {
         // session defaults were maybe updated but not acceptable for connecting to database
-        ss.retryGetDatabaseLoginInfo(res); // sends a variant
+        ss.retryGetDatabaseLoginInfo(req, res); // sends a variant
     }
     // if status return was true, waiting for database server response
 });
@@ -146,7 +151,7 @@ router.post('/dbpause', upload.none(), function (req, res, next) {
         router.cancel_current_session(conn, req, res);
     } else if (conn != null) {
         router.start_new_user(ss, req, res);
-    } else res.render('dbpause', {title: 'Database not yet ready: ' + ss.getSessionID(res.req)},
+    } else res.render('dbpause', {title: 'Database not yet ready: ' + req.sessionID},
         function (err, html) {
             if (err != null) {
                 console.log(err);
@@ -168,7 +173,7 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase, isConnectInfoTryabl
     this.password = dbpassword;
     this.database = dbdatabase;
     // boolean fields
-    this.isConnectInfoTryable = isConnectInfoTryable;
+    this.isConnectInfoTryable = isConnectInfoTryable;/* This field is probably unknown */
 }
 
 function SessionShadow(cio) {
@@ -185,7 +190,7 @@ function SessionShadow(cio) {
     // session generated
     // strictly speaking getSessionID is not a method
     // -- just function attached to object
-    this.getSessionID = getSessionID;
+    // this.getSessionID = getSessionID;
     // configuration info
     this.setHost = setHost;
     this.getHost = getHost;
@@ -197,15 +202,16 @@ function SessionShadow(cio) {
     this.getDatabase = getDatabase;
     // status info
     this.setConnectInfoTryable = setConnectInfoTryable;
-    this.getConnectInfoTryable = getConnectInfoTryable;
+    //isConnectInfoTryable may be redundant & unnecessary
+    // this.getConnectInfoTryable = getConnectInfoTryable;
 }
 
 /* SessionID is set by the session package on reception*/
 /* of the original get request. This getter may not be*/
 /* be needed -- maybe arg should be res & not req. */
-var getSessionID = function getSessionID(req) {
-    return (req.sessionID);
-}
+// var getSessionID = function getSessionID(req) {
+//    return (req.sessionID);
+//}
 
 /* methods */
 var setHost = function (val) {
@@ -236,12 +242,12 @@ var getDatabase = function () {
 var setConnectInfoTryable = function (status) {
     this.cio.isConnectInfoTryable = status;
 };
-var getConnectInfoTryable = function (status) {
-    return (this.cio.isConnectInfoTryable);
-};
+//var getConnectInfoTryable = function (status) {
+//    return (this.cio.isConnectInfoTryable);
+//};
 
 
-var tryToLogin = function (newconnectinfo, confirmPassword, res) {
+var tryToLogin = function (newconnectinfo, confirmPassword, req, res) {
     var ss = this;
     var cio = this.cio;
     // newconnectinfo came from the latest submitted form.
@@ -277,7 +283,7 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
             console.log("Need to retry with new connect info!");
             // different this
             ss.setConnectInfoTryable(false);
-            res.render('index', {title: 'MySQL Reconnect: ' + ss.getSessionID(res.req)},
+            res.render('index', {title: 'MySQL Reconnect: ' + req.sessionID},
                 function (err, html) {
                     if (err != null) {
                         console.log(err);
@@ -289,12 +295,12 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
         } else {
             console.log("Connected to MySQL server!");
             ss.setConnectInfoTryable(true);
-            ss.isDatabaseOK(con, res);
-            var valid = router.connHashTable.get("con+" + res.req.sessionID);
+            ss.isDatabaseOK(con, req, res);
+            var valid = router.connHashTable.get("con+" + req.sessionID);
             if (valid == undefined)
                 valid = null;
             if (valid != null) { // a quick successful connect to database
-                res.render('users', {title: 'Choose User ' + ss.getSessionID(res.req)},
+                res.render('users', {title: 'Choose User ' + req.sessionID},
                     function (err, html) {
                         if (err != null) {
                             console.log(err);
@@ -304,7 +310,7 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
                         }
                     });
             } else {
-                res.render('dbpause', {title: 'Check Database: ' + ss.getSessionID(res.req)},
+                res.render('dbpause', {title: 'Check Database: ' + req.sessionID},
                     function (err, html) {
                         if (err != null) {
                             console.log(err);
@@ -318,7 +324,7 @@ var tryToLogin = function (newconnectinfo, confirmPassword, res) {
     });
 }
 
-var isDatabaseOK = function (con, res) {
+var isDatabaseOK = function (con, req, res) {
     // if res is non-null, there is a browser session to which there must be response
     var testingDataBase = asyncErrDomain.create(); // testingDataBase is object
     var ss = this;
@@ -344,7 +350,7 @@ var isDatabaseOK = function (con, res) {
         // This should be rewritten as chained promises
         con.query("show databases;", function (err, result) {
             if (err) {
-                console.log("No databases!")
+                console.log("No databases!");
                 throw err;
             }
             console.log("Available Databases: ");
@@ -380,8 +386,8 @@ var isDatabaseOK = function (con, res) {
                                 console.log(result[idb]);
                                 roles += result[idb].code + (((result.length - idb) > 1) ? "/" : "");
                             }
-                            router.connHashTable.put("roles+" + res.req.sessionID, roles);
-                            router.connHashTable.put("rolesTable+" + res.req.sessionID, result);
+                            router.connHashTable.put("roles+" + req.sessionID, roles);
+                            router.connHashTable.put("rolesTable+" + req.sessionID, result);
                             console.log("Roles are: " + roles);
                             con.query("describe Users;", function (err, result) {
                                 if (err) {
@@ -390,7 +396,7 @@ var isDatabaseOK = function (con, res) {
                                 }
                                 console.log(result);
                                 // Here we add new entry to hashtable.
-                                router.connHashTable.put("con+" + res.req.sessionID, con);
+                                router.connHashTable.put("con+" + req.sessionID, con);
                                 console.log("Logged in!")
                             });
                         });
@@ -405,10 +411,11 @@ var isDatabaseOK = function (con, res) {
 // did not update the session specific parameters with data
 // entered from browser.
 
-var retryGetDatabaseLoginInfo = function (res) {
+
+var retryGetDatabaseLoginInfo = function (req, res) {
     console.log(this.getCio().toString());
     res.render('index', {
-        title: "MySQL Try Again: " + this.getSessionID(),
+        title: "MySQL Try Again: " + req.sessionID,
         db_server_ph: this.getHost(),
         db_login_ph: this.getUser(),
         db_password_ph: ((this.getPassword() == "") ? "*No Default*" : "*Default****"),
@@ -426,6 +433,8 @@ var retryGetDatabaseLoginInfo = function (res) {
 
 // There is only one group of environment connection parameters,
 // which can be overridden.
+// These are only read once on server start up.
+// Maybe the client browser should get these.
 
 function getEnvConnectInfo() {
     var temp = null;
