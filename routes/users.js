@@ -32,7 +32,6 @@ function get_and_store_record_data(button, email, con, req, res) {
     // These two variables should work for both edit & create.
     var sql_insert = null;
     var sql_insert2 = null;
-    var query4 = null;
 
     if (button == 'view') {
         query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
@@ -135,6 +134,9 @@ function get_and_store_record_data(button, email, con, req, res) {
                     console.log("Insert result: ");
                     console.log(result);
                     //    let's insert into UserRoles table
+                    if(hcmsuserinfo.role == "") {
+                        hcmsuserinfo.role = "editor";
+                    }
                     hcmsuserinfo.role = hcmsuserinfo.role.toLowerCase();
                     //row 0 is editor
                     userroles_row.role_uuid = rolestable[0].uuid;
