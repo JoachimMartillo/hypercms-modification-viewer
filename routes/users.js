@@ -351,7 +351,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
             });
     } else {
         if(queryresult.length == 0) {
-            // this function responds to the origin request.
+            // this function responds to the origin request. 
             router.webStart.start_new_user(ss, req, res);
         } else {
             /* let's get the role */
