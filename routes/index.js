@@ -7,8 +7,9 @@ var HashTable = require('hashtable');
 var mysql = require('mysql');
 var asyncErrDomain = require('domain');
 
-//basic data & function which should be available
+// basic data & functions which should be available
 // outside this module
+
 router.connectinfoENV = getEnvConnectInfo();
 router.sessConnectInfoBuilder = ConnectInfo;
 router.sessShadowBuilder = SessionShadow;
@@ -173,7 +174,7 @@ function ConnectInfo(dbhost, dbuser, dbpassword, dbdatabase, isConnectInfoTryabl
     this.password = dbpassword;
     this.database = dbdatabase;
     // boolean fields
-    this.isConnectInfoTryable = isConnectInfoTryable;/* This field is probably unknown */
+    this.isConnectInfoTryable = isConnectInfoTryable;/* This field is probably unnecessary */
 }
 
 function SessionShadow(cio) {
@@ -238,7 +239,8 @@ var setDatabase = function (val) {
 var getDatabase = function () {
     return (this.cio.database);
 }
-
+// if isConnectionInfoTryable is unnecessary,
+// then this setter is unnecessary.
 var setConnectInfoTryable = function (status) {
     this.cio.isConnectInfoTryable = status;
 };
@@ -410,7 +412,6 @@ var isDatabaseOK = function (con, req, res) {
 // passwords did not agree -- other parameters might be bad
 // did not update the session specific parameters with data
 // entered from browser.
-
 
 var retryGetDatabaseLoginInfo = function (req, res) {
     console.log(this.getCio().toString());

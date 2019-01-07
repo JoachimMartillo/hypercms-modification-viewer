@@ -57,11 +57,13 @@ function get_and_store_record_data(button, email, con, req, res) {
                 for (var idb = 0; idb < result.length; ++idb) {
                     console.log(result[idb]);
                 }
+                /* what if length is 0 -- non-existent user */
                 /*This is much more complex than it should be.*/
                 router.webStart.connHashTable.put("query2+" + req.sessionID, result);
             });
         });
-        //This routine must be executed to respond to the post request.
+        // This routine must be executed to respond to the original post request that identified
+        // the button pressed (view, edit, or create).
         view_pause(req, res);
     } else if (button == 'create') {
         query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
@@ -109,7 +111,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                     middle_name: hcmsuserinfo.middlename,
                     phone: hcmsuserinfo.phone,
                     job_title: hcmsuserinfo.jobTitle,
-                    SSR: 'North American',
+                    SSR: 'North America',
                     registered_on: create_time,
                     default_library_uuid: "2a0046e8-4884-11e2-a2bc-001ec9b84463"/* I don't know why this is set*/
                 };
@@ -121,10 +123,10 @@ function get_and_store_record_data(button, email, con, req, res) {
                 };
                 sql_insert = 'INSERT INTO Users (uuid, created_at, modified_at, email, password, last_name, ' +
                     'first_name, middle_name, phone, job_title, SSR, registered_on, default_library_uuid) VALUES ' +
-                    '(' + row.uuid + ',' + row.created_at + ',' + row.modified_at + ',' + row.email + ',' +
-                    row.password + ',' + row.last_name + ',' + row.first_name + ',' + row.middle_name +
-                    ',' + row.phone + ',' + row.job_title + ',' + row.SSR + ',' +
-                    row.registered_on + ',' + row.default_library_uuid + ');';
+                    '(\"' + row.uuid + '\", \"' + row.created_at + '\", \"' + row.modified_at + '\", \"' + row.email + '\", \"' +
+                    row.password + '\", \"' + row.last_name + '\", \"' + row.first_name + '\", \"' + row.middle_name +
+                    '\", \"' + row.phone + '\", \"' + row.job_title + '\", \"' + row.SSR + '\", \"' +
+                    row.registered_on + '\", \"' + row.default_library_uuid + '\");';
                 con.query(sql_insert, function (err, result) {
                     if (err) {
                         console.log("create sql_insert failed!")
@@ -143,7 +145,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                         }
                     }
                     sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' +
-                        '(' + userroles_row.uuid + ',' + userroles_row.role_uuid + ',' + userroles_row.user_uuid + ');';
+                        '(\"' + userroles_row.uuid + '\", \"' + userroles_row.role_uuid + '\", \"' + userroles_row.user_uuid + '\");';
                     con.query(sql_insert2, function (err, result) {
                         if (err) {
                             console.log("create sql_insert2 failed!")
@@ -189,10 +191,10 @@ function get_and_store_record_data(button, email, con, req, res) {
         };
         sql_insert = 'INSERT INTO Users (uuid, created_at, modified_at, email, password, last_name, ' +
             'first_name, middle_name, phone, job_title, SSR, registered_on, default_library_uuid) VALUES ' +
-            '(' + row.uuid + ',' + row.created_at + ',' + row.modified_at + ',' + row.email + ',' +
-            row.password + ',' + row.last_name + ',' + row.first_name + ',' + row.middle_name +
-            ',' + row.phone + ',' + row.job_title + ',' + row.SSR + ',' +
-            row.registered_on + ',' + row.default_library_uuid + ');';
+            '(\"' + row.uuid + '\", \"' + row.created_at + '\", \"' + row.modified_at + '\", \"' + row.email + '\", \"' +
+            row.password + '\", \"' + row.last_name + '\" , \"' + row.first_name + '\", \"' + row.middle_name +
+            '\", \"' + row.phone + '\", \"' + row.job_title + '\", \"' + row.SSR + '\", \"' +
+            row.registered_on + '\", "' + row.default_library_uuid + '\");';
         con.query(sql_insert, function (err, result) {
             if (err) {
                 console.log("create sql_insert failed!")
@@ -210,7 +212,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                     break;
                 }
             }
-            sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' + '(' + userroles_row.uuid + ',' + userroles_row.role_uuid + ',' + userroles_row.user_uuid + ');';
+            sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' + '(\"' + userroles_row.uuid + '\", \"' + userroles_row.role_uuid + '\", \"' + userroles_row.user_uuid + '\");';
             con.query(sql_insert2, function (err, result) {
                 if (err) {
                     console.log("create sql_insert2 failed!")
@@ -239,17 +241,18 @@ router.post('/', router.upload.none(), function (req, res, next) {
     var button = ((req.body.button_create == "create") ? "create" : "");
     var button = button + ((req.body.button_edit == "edit") ? "edit" : "");
     var button = button + ((req.body.button_view == "view") ? "view" : "");
+    button = ((button == "") ? "view" : button);
     var hcmsuserinfo = {
-        email: req.body.email,
-        hcmspassword: req.body.hcmspassword,
-        password: req.body.password,
-        confirmPassword: req.body.confirmPassword,
-        lastname: req.body.lastname,
-        firstname: req.body.firstname,
-        middlename: req.body.middlename,
-        phone: req.body.phone,
-        jobTitle: req.body.jobTitle,
-        role: req.body.role,
+        email: ((req.body.email == undefined) ? "" : req.body.email),
+        hcmspassword: ((req.body.hcmspassword == undefined) ? "" : req.body.hcmspassword),
+        password: ((req.body.password == undefined) ? "" : req.body.password),
+        confirmPassword: ((req.body.confirmPassword == undefined) ? "" : req.body.confirmPassword),
+        lastname: ((req.body.lastname == undefined) ? "" : req.body.lastname),
+        firstname: ((req.body.firstname == undefined) ? "" : req.body.firstname),
+        middlename: ((req.body.middlename == undefined) ? "" : req.body.middlename),
+        phone: ((req.body.phone == undefined) ? "" : req.body.phone),
+        jobTitle: ((req.body.jobTitle == undefined) ? "" : req.body.jobTitle),
+        role: ((req.body.role == undefined) ? "" : req.body.role),
         button: button
     };
 
@@ -287,8 +290,8 @@ router.post('/', router.upload.none(), function (req, res, next) {
                     res.send(html);
                 }
             });
-        } else if (hcmsuserinfo.email == router.webStart.userdefaults.email_ph) {
-            /* Tommy Flowers doesn't exist in database. */
+        } else if (hcmsuserinfo.email == "") {
+	    // The defaults correspond to null strings -- I have to add logic
             /* I really dislike this indentation */
             res.render('users',
                 Object.assign(Object.assign(Object.assign({}, router.webStart.userdefaults),
@@ -303,25 +306,10 @@ router.post('/', router.upload.none(), function (req, res, next) {
                         res.send(html);
                     }
                 });
-        } else if (hcmsuserinfo.button != "") {
+        } else {
             router.webStart.connHashTable.put("newuserdata+" + req.sessionID, hcmsuserinfo);
             get_and_store_record_data(button, hcmsuserinfo.email, con, req, res);
-        } else {
-            /* This code may be unnecessary because some button should be pushed. */
-            res.render('users',
-                Object.assign(Object.assign(Object.assign({}, router.webStart.userdefaults),
-                    {title: "Choose Action: " + ss.getSessionID(res.req)}),
-                    {role_ph: router.webstart.connHashTable.get("roles+" + req.sessionID)}),
-                function (err, html) {
-                    if (err != null) {
-                        console.log(err);
-                    } else {
-                        // html value comes from rendering the Jade template.
-                        console.log(html);
-                        res.send(html);
-                    }
-                });
-        }
+        } 
     });
 });
 
@@ -360,48 +348,53 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
                 }
             });
     } else {
-        /* let's get the role */
-        var role_uuid = queryresult2[0].role_uuid;
-        var role = 'unknown';
-        for (i = 0; i < rolestable.length; ++i) {
-            if (rolestable[i].uuid == role_uuid) {
-                role = rolestable[i].code;
-            }
-        }
-
-        if (queryresult[0].last_name == null)
-            queryresult[0].last_name = "";
-        if (queryresult[0].first_name == null)
-            queryresult[0].first_name = "";
-        if (queryresult[0].middle_name == null)
-            queryresult[0].middle_name = "";
-        if (queryresult[0].phone == null)
-            queryresult[0].phone = "";
-        if (queryresult[0].job_title == null)
-            queryresult[0].job_title = "";
-
-        var initialization = {
-            email: "email: " + queryresult[0].email,
-            lastname: "lastname: " + queryresult[0].last_name,
-            firstname: "firstname: " + queryresult[0].first_name,
-            middlename: "middlename: " + queryresult[0].middle_name,
-            phone: "phone: " + queryresult[0].phone,
-            job: "job: " + queryresult[0].job_title,
-            role: "role: " + role
-        }
-
-        res.render('userdisplay',
-            Object.assign(Object.assign({}, initialization),
-                {title: "Database Result: " + req.sessionID}),
-            function (err, html) {
-                if (err != null) {
-                    console.log(err);
-                } else {
-                    // html value comes from rendering the Jade template.
-                    console.log(html);
-                    res.send(html);
+        if(queryresult.length == 0) {
+            // this function responds to the origin request.
+            router.webStart.start_new_user(ss, req, res);
+        } else {
+            /* let's get the role */
+            var role_uuid = queryresult2[0].role_uuid;
+            var role = 'unknown';
+            for (i = 0; i < rolestable.length; ++i) {
+                if (rolestable[i].uuid == role_uuid) {
+                    role = rolestable[i].code;
                 }
-            });
+            }
+
+            if (queryresult[0].last_name == null)
+                queryresult[0].last_name = "";
+            if (queryresult[0].first_name == null)
+                queryresult[0].first_name = "";
+            if (queryresult[0].middle_name == null)
+                queryresult[0].middle_name = "";
+            if (queryresult[0].phone == null)
+                queryresult[0].phone = "";
+            if (queryresult[0].job_title == null)
+                queryresult[0].job_title = "";
+
+            var initialization = {
+                email: "email: " + queryresult[0].email,
+                lastname: "lastname: " + queryresult[0].last_name,
+                firstname: "firstname: " + queryresult[0].first_name,
+                middlename: "middlename: " + queryresult[0].middle_name,
+                phone: "phone: " + queryresult[0].phone,
+                job: "job: " + queryresult[0].job_title,
+                role: "role: " + role
+            }
+
+            res.render('userdisplay',
+                Object.assign(Object.assign({}, initialization),
+                    {title: "Database Result: " + req.sessionID}),
+                function (err, html) {
+                    if (err != null) {
+                        console.log(err);
+                    } else {
+                        // html value comes from rendering the Jade template.
+                        console.log(html);
+                        res.send(html);
+                    }
+                });
+        }
     }
 });
 
