@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const uuidv5 = require('uuid/v5');
+var uuidv1 = require('uuid/v1');
 var datetime = require('node-datetime');
 // multer handles forms posted to the
 // server
@@ -95,9 +95,9 @@ function get_and_store_record_data(button, email, con, req, res) {
                 });
             } else {
                 // here us the create prologue
-                const create_time = datetime.create().format('Y/m/d H:M:S');
-                const user_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
-                const userroles_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
+                var create_time = datetime.create().format('Y/m/d H:M:S');
+                var user_uuid_value = uuidv1();
+                var userroles_uuid_value = uuidv1();
 
                 var row = {
                     uuid: user_uuid_value,
@@ -146,7 +146,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                             break;
                         }
                     }
-                    sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' +
+                    sql_insert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' +
                         '(\"' + userroles_row.uuid + '\", \"' + userroles_row.role_uuid + '\", \"' + userroles_row.user_uuid + '\");';
                     con.query(sql_insert2, function (err, result) {
                         if (err) {
@@ -159,6 +159,9 @@ function get_and_store_record_data(button, email, con, req, res) {
                         // now we can view
                         hcmsuserinfo.button = 'view';
                         // This may be logically contorted because we waited for some of database work
+                        router.webStart.connHashTable.remove("query+" + req.sessionID);
+                        router.webStart.connHashTable.remove("query2+" + req.sessionID);
+                        router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
                         get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
                     });
                 });
@@ -167,8 +170,8 @@ function get_and_store_record_data(button, email, con, req, res) {
     } else if (button == 'edit') {
         // here is the edit prologue
         const create_time = datetime.create().format('Y/m/d H:M:S');
-        const user_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
-        const userroles_uuid_value = uuidv5('philips.hyper-cms.com', uuidv5.DNS);
+        const user_uuid_value = uuidv1('philips.hyper-cms.com', uuidv1.DNS);
+        const userroles_uuid_value = uuidv1('philips.hyper-cms.com', uuidv1.DNS);
 
         var row = {
             uuid: user_uuid_value,
@@ -225,6 +228,9 @@ function get_and_store_record_data(button, email, con, req, res) {
                 // The structure below is contained in the hashtable, or it should be.
                 // now we can view
                 hcmsuserinfo.button = 'view';
+                router.webStart.connHashTable.remove("query+" + req.sessionID);
+                router.webStart.connHashTable.remove("query2+" + req.sessionID);
+                router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
                 // this may be logically contorted because we waited for some of database work
                 get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
             });
