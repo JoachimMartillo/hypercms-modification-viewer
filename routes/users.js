@@ -184,7 +184,7 @@ function get_and_store_record_data(button, email, con, req, res) {
             middle_name: hcmsuserinfo.middlename,
             phone: hcmsuserinfo.phone,
             job_title: hcmsuserinfo.jobTitle,
-            SSR: 'North American',
+            SSR: 'North America',
             registered_on: create_time,
             default_library_uuid: "2a0046e8-4884-11e2-a2bc-001ec9b84463"/* I don't know why this is set*/
         };
@@ -322,6 +322,7 @@ router.post('/', router.upload.none(), function (req, res, next) {
 });
 
 router.post('/viewpause', router.upload.none(), function (req, res, next) {
+    // This function needs to be debugged
     var cio = req.session.connectInfoSession;
     var ss = new router.webStart.sessShadowBuilder(cio);
     var queryresult = router.webStart.connHashTable.get("query+" + req.sessionID);
@@ -345,6 +346,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
         }); /* If queryresult2  */
         // Need to process button associated with incoming post request
         //    This button for view, create, edit
+        // why am I not using the HTTP request for button source
     } else if ((hcmsuserinfo.button != 'view') || (queryresult2 == undefined) || (queryresult2 == null)) {
         res.render('viewpause', {title: 'User not yet ready: ' + ss.getSessionID(res.req)},
             function (err, html) {
@@ -357,7 +359,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
             });
     } else {
         if(queryresult.length == 0) {
-            // this function responds to the origin request. 
+            // this function responds to the origin request.
             router.webStart.start_new_user(ss, req, res);
         } else {
             /* let's get the role */
