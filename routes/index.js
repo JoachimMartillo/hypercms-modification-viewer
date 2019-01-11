@@ -35,7 +35,7 @@ router.cancel_current_session = function (conn, req, res) {
                 console.log(err);
             } else {
                 res.render('restart', {
-                    title: "New Session",
+                    title: "New Session After Cancel",
                     url: '/'
                 }, function (err, html) {
                     if (err != null) {
