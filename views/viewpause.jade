@@ -6,6 +6,9 @@ block content
             .col-md-6.col-md-offset-3
                 h1.display-4.m-b-2 Waiting to Obtain User Info from Database
                 p Click button for desired action!
+                    br
+                    | Note that if user does not exist, the next screen will enable selection
+                    | of new user.
                 // waiting for data base
                 form(method='POST', action='/usermanagement/viewpause')
                     button.btn.btn-primary(type='submit', name='button_cancel', value='cancel_session') Cancel session?

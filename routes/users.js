@@ -45,6 +45,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                 console.log(result[idb]);
             }
             router.webStart.connHashTable.put("query+" + req.sessionID, result);
+            // Nothing to view -- no user_uuid to make next query
             if (result.length > 0) {
                 user_uuid = result[0].uuid;
                 query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid +
@@ -398,7 +399,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
                     });
                 break;
         }
-    } else {
+    } else { // This may be unnecessary
         if (queryresult.length == 0) {
             // could not find user in database
             router.webStart.start_new_user(ss, req, res);
