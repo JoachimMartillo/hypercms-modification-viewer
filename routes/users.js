@@ -324,7 +324,7 @@ router.post('/', router.upload.none(), function (req, res, next) {
             res.render('users',
                 Object.assign(Object.assign(Object.assign({}, router.webStart.userdefaults),
                     {title: "HyperCMS Bad User: " + req.sessionID}),
-                    {role_ph: router.connHashTable.get("roles+" + req.sessionID)}),
+                    {role_ph: router.webStart.connHashTable.get("roles+" + req.sessionID)}),
                 function (err, html) {
                     if (err != null) {
                         console.log(err);
@@ -378,7 +378,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
         // Need to process button associated with incoming post request
         //    This button for view, create, edit
         // why am I not using the HTTP request for button source
-    } else if (queryresult == null) {
+    } else if(queryresult == null) {
         switch (button) {
             case "new":
                 router.webStart.start_new_user(ss, req, res);
