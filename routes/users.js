@@ -45,7 +45,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                 console.log(result[idb]);
             }
             router.webStart.connHashTable.put("query+" + req.sessionID, result);
-            // Nothing to view -- no user_uuid to make next query
+            // Nothing to view if length == 0 -- no user_uuid to make next query
             if (result.length > 0) {
                 user_uuid = result[0].uuid;
                 query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid +
@@ -345,15 +345,23 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
     // This function needs to be debugged
     var cio = req.session.connectInfoSession;
     var ss = new router.webStart.sessShadowBuilder(cio);
+
     var queryresult = router.webStart.connHashTable.get("query+" + req.sessionID);
+    if (queryresult == undefined)
+        queryresult = null;
     var queryresult2 = router.webStart.connHashTable.get("query2+" + req.sessionID);
+    if (queryresult2 == undefined)
+        queryresult2 = null;
     var rolestable = router.webStart.connHashTable.get("rolesTable+" + req.sessionID);
+    if (rolestable == undefined)
+        rolestable = null;
+
     var button = ((req.body.button_cancel == "cancel_session") ? "cancel_session" : "");
     button = button + ((req.body.button_continue == "continue") ? "continue" : "");
     button = button + ((req.body.button_new == "new") ? "new" : "");
     button = ((button == "") ? "new" : button);
 
-    if ((rolestable == undefined) || (rolestable == null)) {
+    if (rolestable == null) {
         console.log("Roles Table seems to be missing.");
         res.render('restart', {
             title: "New Session after Error",
@@ -370,13 +378,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
         // Need to process button associated with incoming post request
         //    This button for view, create, edit
         // why am I not using the HTTP request for button source
-    } else if ((queryresult != undefined) && (queryresult != null) &&
-        (queryresult.length == 0)) {
-        // user does not exist the query returned a zero length array
-        // i.e. it was a valid query but no row matched it.
-        // start a new user -- maybe this should be more loquacious
-        router.webStart.start_new_user(ss, req, res);
-    } else if ((queryresult2 == undefined) || (queryresult2 == null)) {
+    } else if((queryresult == null) || (queryresult2 == null)) {
         switch (button) {
             case "new":
                 router.webStart.start_new_user(ss, req, res);
@@ -399,54 +401,59 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
                     });
                 break;
         }
-    } else { // This may be unnecessary
-        if (queryresult.length == 0) {
-            // could not find user in database
-            router.webStart.start_new_user(ss, req, res);
-        } else {
-            /* let's get the role */
-            var role_uuid = queryresult2[0].role_uuid;
-            var role = 'unknown';
-            for (i = 0; i < rolestable.length; ++i) {
-                if (rolestable[i].uuid == role_uuid) {
-                    role = rolestable[i].code;
-                }
+    } else if ((queryresult != null) && (queryresult.length == 0)) {
+        // user does not exist the query returned a zero length array
+        // i.e. it was a valid query but no row matched it.
+        // start a new user -- maybe this should be more loquacious
+        router.webStart.start_new_user(ss, req, res);
+    } else {
+        /* let's get the role */
+        var role_uuid = queryresult2[0].role_uuid;
+        var role = 'unknown';
+        for (i = 0; i < rolestable.length; ++i) {
+            if (rolestable[i].uuid == role_uuid) {
+                role = rolestable[i].code;
             }
-
-            if (queryresult[0].last_name == null)
-                queryresult[0].last_name = "";
-            if (queryresult[0].first_name == null)
-                queryresult[0].first_name = "";
-            if (queryresult[0].middle_name == null)
-                queryresult[0].middle_name = "";
-            if (queryresult[0].phone == null)
-                queryresult[0].phone = "";
-            if (queryresult[0].job_title == null)
-                queryresult[0].job_title = "";
-
-            var initialization = {
-                email: "email: " + queryresult[0].email,
-                lastname: "lastname: " + queryresult[0].last_name,
-                firstname: "firstname: " + queryresult[0].first_name,
-                middlename: "middlename: " + queryresult[0].middle_name,
-                phone: "phone: " + queryresult[0].phone,
-                job: "job: " + queryresult[0].job_title,
-                role: "role: " + role
-            }
-
-            res.render('userdisplay',
-                Object.assign(Object.assign({}, initialization),
-                    {title: "Database Result: " + req.sessionID}),
-                function (err, html) {
-                    if (err != null) {
-                        console.log(err);
-                    } else {
-                        // html value comes from rendering the Jade template.
-                        console.log(html);
-                        res.send(html);
-                    }
-                });
         }
+
+        if (queryresult[0].last_name == null)
+            queryresult[0].last_name = "";
+        if (queryresult[0].first_name == null)
+            queryresult[0].first_name = "";
+        if (queryresult[0].middle_name == null)
+            queryresult[0].middle_name = "";
+        if (queryresult[0].phone == null)
+            queryresult[0].phone = "";
+        if (queryresult[0].job_title == null)
+            queryresult[0].job_title = "";
+
+        var initialization = {
+            email: "email: " + queryresult[0].email,
+            lastname: "lastname: " + queryresult[0].last_name,
+            firstname: "firstname: " + queryresult[0].first_name,
+            middlename: "middlename: " + queryresult[0].middle_name,
+            phone: "phone: " + queryresult[0].phone,
+            job: "job: " + queryresult[0].job_title,
+            role: "role: " + role
+        }
+
+        // clean up hash table
+        router.webStart.connHashTable.remove("query+" + req.sessionID);
+        router.webStart.connHashTable.remove("query2+" + req.sessionID);
+        router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
+
+        res.render('userdisplay',
+            Object.assign(Object.assign({}, initialization),
+                {title: "Database Result: " + req.sessionID}),
+            function (err, html) {
+                if (err != null) {
+                    console.log(err);
+                } else {
+                    // html value comes from rendering the Jade template.
+                    console.log(html);
+                    res.send(html);
+                }
+            });
     }
 });
 
