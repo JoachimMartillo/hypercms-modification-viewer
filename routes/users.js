@@ -186,8 +186,8 @@ function get_and_store_record_data(button, email, con, req, res) {
     } else if (button == 'edit') {
         // here is the edit prologue
         const create_time = datetime.create().format('Y/m/d H:M:S');
-        const user_uuid_value = uuidv1('philips.hyper-cms.com', uuidv1.DNS);
-        const userroles_uuid_value = uuidv1('philips.hyper-cms.com', uuidv1.DNS);
+        const user_uuid_value = uuidv1();
+        const userroles_uuid_value = uuidv1();
 
         var row = {
             uuid: user_uuid_value,
@@ -378,7 +378,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
         // Need to process button associated with incoming post request
         //    This button for view, create, edit
         // why am I not using the HTTP request for button source
-    } else if((queryresult == null) || (queryresult2 == null)) {
+    } else if (queryresult == null) {
         switch (button) {
             case "new":
                 router.webStart.start_new_user(ss, req, res);
@@ -390,7 +390,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
                 router.webStart.cancel_current_session(con, req, res);
                 break;
             case "continue":
-                res.render('viewpause', {title: 'User not yet ready: ' + req.sessionID},
+                res.render('viewpause', {title: 'Awaiting User Data (1): ' + req.sessionID},
                     function (err, html) {
                         if (err != null) {
                             console.log(err);
@@ -406,6 +406,29 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
         // i.e. it was a valid query but no row matched it.
         // start a new user -- maybe this should be more loquacious
         router.webStart.start_new_user(ss, req, res);
+    } else if ((queryresult != null) && (queryresult2 == null)) {
+        switch (button) {
+            case "new":
+                router.webStart.start_new_user(ss, req, res);
+                break;
+            case "cancel_session":
+                var con = router.webStart.connHashTable.get("con+" + req.sessionID);
+                if (con == undefined)
+                    con = null;
+                router.webStart.cancel_current_session(con, req, res);
+                break;
+            case "continue":
+                res.render('viewpause', {title: 'Awaiting User Data (2): ' + req.sessionID},
+                    function (err, html) {
+                        if (err != null) {
+                            console.log(err);
+                        } else {
+                            console.log(html); // the MySQL Login form
+                            res.send(html);
+                        }
+                    });
+                break;
+        }
     } else {
         /* let's get the role */
         var role_uuid = queryresult2[0].role_uuid;

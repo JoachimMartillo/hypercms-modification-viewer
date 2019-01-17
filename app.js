@@ -45,7 +45,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(session({secret: 'this-is-a-secret-token', cookie: {maxAge: 60000}}));
+app.use(session({secret: 'hyper-cms-user-manager', cookie: {maxAge: 36000000}}));
 
 // set up routes
 app.use('/', webStart);/* deal with logging into database. */
