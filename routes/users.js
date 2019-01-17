@@ -45,6 +45,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                 console.log(result[idb]);
             }
             router.webStart.connHashTable.put("query+" + req.sessionID, result);
+            // Nothing to view if length == 0 -- no user_uuid to make next query
             if (result.length > 0) {
                 user_uuid = result[0].uuid;
                 query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid +
