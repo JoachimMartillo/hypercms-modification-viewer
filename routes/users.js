@@ -185,14 +185,14 @@ function get_and_store_record_data(button, email, con, req, res) {
         });
     } else if (button == 'edit') {
         // here is the edit prologue
-        const create_time = datetime.create().format('Y/m/d H:M:S');
-        const user_uuid_value = uuidv1();
-        const userroles_uuid_value = uuidv1();
-
+        const mod_time = datetime.create().format('Y/m/d H:M:S');
+        // unfortunately can't change email -- must delete and then create
+        // could add syntax old email/new mail but would have to check
+        // no row had new email already.
         var row = {
-            uuid: user_uuid_value,
-            created_at: create_time,
-            modified_at: create_time,
+            uuid: "",
+            created_at: "",
+            modified_at: mod_time,
             email: email,
             password: hcmsuserinfo.password,
             last_name: hcmsuserinfo.lastname,
@@ -201,60 +201,68 @@ function get_and_store_record_data(button, email, con, req, res) {
             phone: hcmsuserinfo.phone,
             job_title: hcmsuserinfo.jobTitle,
             SSR: 'North America',
-            registered_on: create_time,
+            registered_on: "",
             default_library_uuid: "2a0046e8-4884-11e2-a2bc-001ec9b84463"/* I don't know why this is set*/
         };
 
         var userroles_row = {
-            uuid: userroles_uuid_value,
+            uuid: "",
             role_uuid: "", /* need to fill in this value */
-            user_uuid: user_uuid_value
+            user_uuid: ""
         };
-        sql_insert = 'INSERT INTO Users (uuid, created_at, modified_at, email, password, last_name, ' +
-            'first_name, middle_name, phone, job_title, SSR, registered_on, default_library_uuid) VALUES ' +
-            '(\"' + row.uuid + '\", \"' + row.created_at + '\", \"' + row.modified_at + '\", \"' + row.email + '\", \"' +
-            row.password + '\", \"' + row.last_name + '\" , \"' + row.first_name + '\", \"' + row.middle_name +
-            '\", \"' + row.phone + '\", \"' + row.job_title + '\", \"' + row.SSR + '\", \"' +
-            row.registered_on + '\", "' + row.default_library_uuid + '\");';
-        con.query(sql_insert, function (err, result) {
+
+        query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
+        con.query(query, function (err, result) {
             if (err) {
-                console.log("create sql_insert failed!")
+                console.log("view query failed!")
                 throw err;
             }
-            console.log("Insert result: ");
-            console.log(result);
-            //    let's insert into UserRoles table
-            hcmsuserinfo.role = hcmsuserinfo.role.toLowerCase();
-            //row 0 is editor
-            userroles_row.role_uuid = rolestable[0].uuid;
-            for (var i = 0; i < rolestable.length; ++i) {
-                if (rolestable[i].code == hcmsuserinfo.role) {
-                    userroles_row.role_uuid = rolestable[i].uuid;
-                    break;
-                }
+            console.log("HyperCMS user data: ");
+            for (var idb = 0; idb < result.length; ++idb) {
+                console.log(result[idb]);
             }
-            sqlinsert2 = 'INSERT INTO UserRoles (uuid, role_uuid, user_uuid) VALUES ' +
-                '(\"' + userroles_row.uuid + '\", \"' + userroles_row.role_uuid +
-                '\", \"' + userroles_row.user_uuid + '\");';
-            con.query(sql_insert2, function (err, result) {
-                if (err) {
-                    console.log("create sql_insert2 failed!")
-                    throw err;
-                }
-                console.log("Insert2 result: ");
-                console.log(result);
-                // The structure below is contained in the hashtable, or it should be.
-                // now we can view
+
+            if (result.length == 0) {
+                // no user record to update/edit
                 hcmsuserinfo.button = 'view';
                 router.webStart.connHashTable.remove("query+" + req.sessionID);
                 router.webStart.connHashTable.remove("query2+" + req.sessionID);
                 router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
                 // this may be logically contorted because we waited for some of database work
                 get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
-            });
+            } else {
+                router.webStart.connHashTable.put("query+" + req.sessionID, result);
+                // Nothing to view if length == 0 -- no user_uuid to make next query
+
+                user_uuid = result[0].uuid;
+                query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid +
+                    '\'' + ';';
+                con.query(query2, function (err, result) {
+                    if (err) {
+                        console.log("view query2 failed!")
+                        throw err;
+                    }
+                    console.log("HyperCMS user-role data: ");
+                    for (var idb = 0; idb < result.length; ++idb) {
+                        console.log(result[idb]);
+                    }
+                    /* what if length is 0 -- non-existent user */
+                    /*This is much more complex than it should be.*/
+
+
+                    hcmsuserinfo.button = 'view';
+                    router.webStart.connHashTable.remove("query+" + req.sessionID);
+                    router.webStart.connHashTable.remove("query2+" + req.sessionID);
+                    router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
+                    // this may be logically contorted because we waited for some of database work
+                    get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
+                });
+
+            }
         });
     }
 }
+
 
 // This line is executed on startup -- must be able to transform
 // router.upload.none() to a value on startup.
@@ -378,7 +386,7 @@ router.post('/viewpause', router.upload.none(), function (req, res, next) {
         // Need to process button associated with incoming post request
         //    This button for view, create, edit
         // why am I not using the HTTP request for button source
-    } else if(queryresult == null) {
+    } else if (queryresult == null) {
         switch (button) {
             case "new":
                 router.webStart.start_new_user(ss, req, res);
