@@ -23,6 +23,9 @@ function view_pause(req, res) {
     });
 }
 
+// when user input is required data is stored in the hashtable
+// otherwise the closure is used to persist data through callbacks
+
 function get_and_store_record_data(button, email, con, req, res) {
     var hcmsuserinfo = router.webStart.connHashTable.get("newuserdata+" + req.sessionID);
     var rolestable = router.webStart.connHashTable.get("rolesTable+" + req.sessionID);
@@ -221,7 +224,7 @@ function get_and_store_record_data(button, email, con, req, res) {
             for (var idb = 0; idb < result.length; ++idb) {
                 console.log(result[idb]);
             }
-
+            var original_user_record = result;
             if (result.length == 0) {
                 // no user record to update/edit
                 hcmsuserinfo.button = 'view';
@@ -248,6 +251,35 @@ function get_and_store_record_data(button, email, con, req, res) {
                     }
                     /* what if length is 0 -- non-existent user */
                     /*This is much more complex than it should be.*/
+                    var original_userroles_record = result;
+                    // do we have a new user role
+                    // get new role uuid if there is a new role uuid
+                    var maybe_new_user_role_uuid = null;
+                    if(hcmsinfo.role != null) {
+                        var maybenewrole = hcmsinfo.role;
+                        for(var index = 0; index < rolestable.length; ++ index ) {
+                            if (rolestable[index].code == maybenewrole) {
+                                maybe_new_user_role_uuid = rolestable[i].uuid;
+                                break;
+                            }
+                        }
+                    }
+                    var users_update = "";
+
+                    if (maybe_new_user_role_uuid != original_userroles_record.role_uuid) {
+                        var userroles_update =
+                            'UPDATE UserRoles SET role_uuid=\'' +
+                            maybe_new_user_role_uuid + '\' WHERE uuid=\'' +
+                            original_userroles_record.uuid + '\';';
+                        con.query(sql_insert2, function (err, result) {
+                            if (err) {
+                                console.log("create sql_insert2 failed!")
+                                throw err;
+                            }
+                            console.log("Insert2 result: ");
+                            console.log(result);
+                        });
+                    }
 
 
                     hcmsuserinfo.button = 'view';
@@ -255,6 +287,8 @@ function get_and_store_record_data(button, email, con, req, res) {
                     router.webStart.connHashTable.remove("query2+" + req.sessionID);
                     router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
                     // this may be logically contorted because we waited for some of database work
+
+
                     get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
                 });
 
