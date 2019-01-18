@@ -31,10 +31,12 @@ function get_and_store_record_data(button, email, con, req, res) {
     var rolestable = router.webStart.connHashTable.get("rolesTable+" + req.sessionID);
     var query = null;
     var user_uuid = null;
+    var role_uuid = null;
     var query2 = null;
-    // These two variables should work for both edit & create.
     var sql_insert = null;
     var sql_insert2 = null;
+    var sql_update = null;
+    var sql_update2 = null;
 
     if (button == 'view') {
         query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
@@ -100,8 +102,13 @@ function get_and_store_record_data(button, email, con, req, res) {
                         console.log(result[idb]);
                     }
                     /*This is much more complex than it should be.*/
-                    router.webStart.connHashTable.put("query2+" + req.sessionID, result);
                     hcmsuserinfo.button = 'view';
+                    // This may be logically contorted because we waited for some of
+                    // database work
+                    router.webStart.connHashTable.remove("query+" + req.sessionID);
+                    router.webStart.connHashTable.remove("query2+" + req.sessionID);
+                    router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
+                    get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
                 });
             } else {
                 // here us the create prologue
@@ -114,7 +121,7 @@ function get_and_store_record_data(button, email, con, req, res) {
                     created_at: create_time,
                     modified_at: create_time,
                     email: email,
-                    password: hcmsuserinfo.password,
+                    password: hcmsuserinfo.hcmspassword,
                     last_name: hcmsuserinfo.lastname,
                     first_name: hcmsuserinfo.firstname,
                     middle_name: hcmsuserinfo.middlename,
@@ -197,7 +204,7 @@ function get_and_store_record_data(button, email, con, req, res) {
             created_at: "",
             modified_at: mod_time,
             email: email,
-            password: hcmsuserinfo.password,
+            password: hcmsuserinfo.hcmspassword,
             last_name: hcmsuserinfo.lastname,
             first_name: hcmsuserinfo.firstname,
             middle_name: hcmsuserinfo.middlename,
@@ -208,16 +215,16 @@ function get_and_store_record_data(button, email, con, req, res) {
             default_library_uuid: "2a0046e8-4884-11e2-a2bc-001ec9b84463"/* I don't know why this is set*/
         };
 
-        var userroles_row = {
-            uuid: "",
-            role_uuid: "", /* need to fill in this value */
-            user_uuid: ""
-        };
+        // var userroles_row = {
+        //     uuid: "",
+        //     role_uuid: "", /* need to fill in this value */
+        //     user_uuid: ""
+        // };
 
         query = 'SELECT * FROM Users WHERE email=' + '\'' + email + '\'' + ';';
         con.query(query, function (err, result) {
             if (err) {
-                console.log("view query failed!")
+                console.log("edit query failed!")
                 throw err;
             }
             console.log("HyperCMS user data: ");
@@ -232,66 +239,78 @@ function get_and_store_record_data(button, email, con, req, res) {
                 router.webStart.connHashTable.remove("query2+" + req.sessionID);
                 router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
                 // this may be logically contorted because we waited for some of database work
+                // we should be transferred back to usermanagement screen
                 get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
             } else {
-                router.webStart.connHashTable.put("query+" + req.sessionID, result);
-                // Nothing to view if length == 0 -- no user_uuid to make next query
+                // we can build the update
+                sql_update =
+                    'UPDATE Users SET modified_at=' + '\'' + row.modified_at + '\'' +
+                    ((row.password != "") ? ', password=' + '\'' + row.password + '\'' : '') +
+                    ((row.last_name != "") ? ', last_name=' + '\'' + row.last_name + '\'' : '') +
+                    ((row.first_name != "") ? ', first_name=' + '\'' + row.first_name + '\'' : '') +
+                    ((row.middle_name != "") ? ', middle_name=' + '\'' + row.middle_name + '\'' : '') +
+                    ((row.phone != "") ? ', phone=' + '\'' + row.phone + '\'' : '') +
+                    ' WHERE uuid=' + '\'' + original_user_record[0].uuid + '\';';
 
-                user_uuid = result[0].uuid;
-                query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid +
-                    '\'' + ';';
-                con.query(query2, function (err, result) {
+                con.query(sql_update, function (err, result) {
                     if (err) {
-                        console.log("view query2 failed!")
+                        console.log("create sql_update failed!")
                         throw err;
                     }
-                    console.log("HyperCMS user-role data: ");
-                    for (var idb = 0; idb < result.length; ++idb) {
-                        console.log(result[idb]);
-                    }
-                    /* what if length is 0 -- non-existent user */
-                    /*This is much more complex than it should be.*/
-                    var original_userroles_record = result;
-                    // do we have a new user role
-                    // get new role uuid if there is a new role uuid
-                    var maybe_new_user_role_uuid = null;
-                    if(hcmsinfo.role != null) {
-                        var maybenewrole = hcmsinfo.role;
-                        for(var index = 0; index < rolestable.length; ++ index ) {
-                            if (rolestable[index].code == maybenewrole) {
-                                maybe_new_user_role_uuid = rolestable[i].uuid;
-                                break;
+                    console.log("Update result: ");
+                    console.log(result);
+
+                    user_uuid = original_user_record[0].uuid;
+                    query2 = 'SELECT * FROM UserRoles WHERE user_uuid=' + '\'' + user_uuid + '\'' + ';';
+                    con.query(query2, function (err, result) {
+                        if (err) {
+                            console.log("update query2 failed!")
+                            throw err;
+                        }
+                        console.log("HyperCMS user-role data: ");
+                        for (var idb = 0; idb < result.length; ++idb) {
+                            console.log(result[idb]);
+                        }
+                        /* what if length is 0 -- non-existent userrole */
+                        /*This is much more complex than it should be.*/
+                        var original_userroles_record = result;
+                        // do we have a new user role
+                        // get new role uuid if there is a new role uuid
+                        var maybe_new_user_role_uuid = original_userroles_record[0].role_uuid;
+                        if (hcmsuserinfo.jobTitle != "") {
+                            var maybenewrole = row.job_title;
+                            for (var index = 0; index < rolestable.length; ++index) {
+                                if (rolestable[index].code == maybenewrole) {
+                                    maybe_new_user_role_uuid = rolestable[i].uuid;
+                                    break;
+                                }
                             }
                         }
-                    }
-                    var users_update = "";
+                        if (maybe_new_user_role_uuid != original_userroles_record[0].role_uuid) {
+                            sql_update2 =
+                                'UPDATE UserRoles SET role_uuid=' + '\'' +
+                                maybe_new_user_role_uuid + '\' WHERE uuid=\'' +
+                                original_userroles_record.uuid + '\';';
+                            con.query(sql_update2, function (err, result) {
+                                if (err) {
+                                    console.log("create sql_update2 failed!")
+                                    throw err;
+                                }
+                                console.log("Insert2 result: ");
+                                console.log(result);
+                            });
+                        }
+                        // Now that the database was changed pretend the command was 'view'
+                        hcmsuserinfo.button = 'view';
+                        router.webStart.connHashTable.remove("query+" + req.sessionID);
+                        router.webStart.connHashTable.remove("query2+" + req.sessionID);
+                        router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
 
-                    if (maybe_new_user_role_uuid != original_userroles_record.role_uuid) {
-                        var userroles_update =
-                            'UPDATE UserRoles SET role_uuid=\'' +
-                            maybe_new_user_role_uuid + '\' WHERE uuid=\'' +
-                            original_userroles_record.uuid + '\';';
-                        con.query(sql_insert2, function (err, result) {
-                            if (err) {
-                                console.log("create sql_insert2 failed!")
-                                throw err;
-                            }
-                            console.log("Insert2 result: ");
-                            console.log(result);
-                        });
-                    }
+                        // this may be logically contorted because we waited for some of database work
 
-
-                    hcmsuserinfo.button = 'view';
-                    router.webStart.connHashTable.remove("query+" + req.sessionID);
-                    router.webStart.connHashTable.remove("query2+" + req.sessionID);
-                    router.webStart.connHashTable.remove("newuserdata+" + req.sessionID);
-                    // this may be logically contorted because we waited for some of database work
-
-
-                    get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
+                        get_and_store_record_data(hcmsuserinfo.button, email, con, req, res);
+                    });
                 });
-
             }
         });
     }
