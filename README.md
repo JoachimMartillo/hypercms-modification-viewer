@@ -1,4 +1,4 @@
-This the hyperactive-user-manager project.
+This the hypercms-user-manager project.
 
 [The creation procedure is recorded in README.txt in the
 project. Markdown processing seems to broken -- now fixed.]
@@ -26,11 +26,11 @@ updated.
 
 The name in the package.json file was set as follows.
 
-  "name": "hyperactive-user-manager",
+  "name": "hypercms-user-manager",
 
 The variable debug was set as follows in the bin/www file.
 
-var debug = require('debug')('hyperactive-user-manager');
+var debug = require('debug')('hypercms-user-manager');
 
 Because emacs was used to edit the files, backup files~ were created
 in the directory tree.
